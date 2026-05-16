@@ -119,7 +119,11 @@ export async function ensureModuleTranslationsLoaded() {
 
 function refreshLocalizedUi() {
   for (const app of Object.values(ui?.windows ?? {})) {
-    if (app?.options?.id === `${MODULE_ID}-manager`) app.render(true);
+    if (app?.options?.id === `${MODULE_ID}-manager`) {
+      app.options ??= {};
+      app.options.title = localize("Manager.Title");
+      app.render(true);
+    }
   }
   ui?.controls?.render?.({ reset: true });
 }

@@ -1134,6 +1134,8 @@ async function promptTriggerData(trigger = null, duplicate = false) {
 
 export function openTriggerManager() {
   if (!managerApp) managerApp = new SRTTriggerManager();
+  managerApp.options ??= {};
+  managerApp.options.title = localize("Manager.Title");
   managerApp.render(true);
 
   const viewportWidth = globalThis.window?.innerWidth ?? 1600;
@@ -1153,6 +1155,7 @@ export function openTriggerManager() {
 export function toggleTriggerManager() {
   if (managerApp) {
     const app = managerApp;
+    managerApp = null;
     return app.close({ force: true });
   }
 
@@ -1166,6 +1169,41 @@ export class SRTSettingsMenu extends FormApplication {
   }
 
   async _updateObject() {}
+}
+
+function getManagerTemplateStrings() {
+  return {
+    eyebrow: localize("Manager.Eyebrow"),
+    title: localize("Manager.Title"),
+    summary: localize("Manager.Summary"),
+    worldLabel: localize("Manager.WorldLabel"),
+    triggerCount: localize("Manager.TriggerCount"),
+    profileCount: localize("Manager.ProfileCount"),
+    triggerPanelTitle: localize("Manager.TriggerPanelTitle"),
+    triggerPanelHint: localize("Manager.TriggerPanelHint"),
+    export: localize("Manager.Export"),
+    import: localize("Manager.Import"),
+    create: localize("Manager.Create"),
+    execution: localize("Manager.Execution"),
+    priority: localize("Manager.Priority"),
+    match: localize("Manager.Match"),
+    filters: localize("Manager.Filters"),
+    actionLabel: localize("Manager.ActionLabel"),
+    edit: localize("Manager.Edit"),
+    duplicate: localize("Manager.Duplicate"),
+    toggle: localize("Manager.Toggle"),
+    delete: localize("Manager.Delete"),
+    emptyTitle: localize("Manager.EmptyTitle"),
+    empty: localize("Manager.Empty"),
+    profilePanelTitle: localize("Manager.ProfilePanelTitle"),
+    profilePanelHint: localize("Manager.ProfilePanelHint"),
+    exportProfiles: localize("Manager.ExportProfiles"),
+    importProfiles: localize("Manager.ImportProfiles"),
+    systemLabel: localize("Manager.SystemLabel"),
+    importProfile: localize("Manager.ImportProfile"),
+    emptyProfilesTitle: localize("Manager.EmptyProfilesTitle"),
+    emptyProfiles: localize("Manager.EmptyProfiles")
+  };
 }
 
 export class SRTTriggerManager extends FormApplication {
@@ -1184,9 +1222,8 @@ export class SRTTriggerManager extends FormApplication {
   }
 
   async close(options = {}) {
-    const result = await super.close(options);
     if (managerApp === this) managerApp = null;
-    return result;
+    return super.close(options);
   }
 
   getData() {
@@ -1199,6 +1236,7 @@ export class SRTTriggerManager extends FormApplication {
     const runtime = getRuntimeOptions();
 
     return {
+      strings: getManagerTemplateStrings(),
       hasTriggers: triggers.length > 0,
       hasProfiles: profiles.length > 0,
       triggers,
@@ -1441,5 +1479,9 @@ export const __test__ = {
   findTriggerById,
   presentTrigger,
   presentProfile,
-  applyManagerTheme
+  getManagerTemplateStrings,
+  applyManagerTheme,
+  resetManagerApp() {
+    managerApp = null;
+  }
 };

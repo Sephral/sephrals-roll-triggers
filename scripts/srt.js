@@ -107,8 +107,6 @@ Hooks.on("renderSceneControls", () => {
 });
 
 function installSceneControlClickFallback() {
-  if (getFoundryGeneration() < 14) return;
-
   const button = document.querySelector(`[data-control='${TRIGGER_MANAGER_CONTROL}']`);
   if (!button || button.dataset.srtClickFallbackInstalled === "true") return;
 

@@ -71,6 +71,11 @@ globalThis.document = {
 };
 
 const { __test__ } = await import("../scripts/srt.js");
+const {
+  __test__: triggerManagerTest,
+  openTriggerManager,
+  SRTTriggerManager
+} = await import("../scripts/trigger-manager.js");
 
 test("registers a GM scene control for toggling the trigger manager", () => {
   const controls = {};
@@ -91,21 +96,26 @@ test("scene control registration is GM-only", () => {
   game.user.isGM = true;
 });
 
-test("scene control fallback marks the v14 toolbar button", () => {
-  const listeners = [];
-  document.button = {
-    dataset: {},
-    addEventListener(event, callback) {
-      listeners.push({ event, callback });
-    }
-  };
+test("scene control fallback marks the toolbar button in v13 and v14", () => {
+  for (const generation of [13, 14]) {
+    const listeners = [];
+    document.button = {
+      dataset: {},
+      addEventListener(event, callback) {
+        listeners.push({ event, callback });
+      }
+    };
 
-  __test__.installSceneControlClickFallback();
-  __test__.installSceneControlClickFallback();
+    game.release.generation = generation;
+    __test__.installSceneControlClickFallback();
+    __test__.installSceneControlClickFallback();
 
-  assert.equal(document.button.dataset.srtClickFallbackInstalled, "true");
-  assert.equal(listeners.length, 1);
-  assert.equal(listeners[0].event, "click");
+    assert.equal(document.button.dataset.srtClickFallbackInstalled, "true");
+    assert.equal(listeners.length, 1);
+    assert.equal(listeners[0].event, "click");
+  }
+
+  game.release.generation = 14;
 });
 
 test("scene control restore returns to the token toolbar", () => {
@@ -115,4 +125,61 @@ test("scene control restore returns to the token toolbar", () => {
   __test__.scheduleSceneControlRestore();
 
   assert.deepEqual(ui.controls.activations, [{ control: __test__.DEFAULT_SCENE_CONTROL }]);
+});
+
+test("scene control toggle can reopen while a prior close is still pending", async () => {
+  const controls = {};
+  for (const callback of hooks.on.get("getSceneControlButtons") ?? []) callback(controls);
+  ui.controls.controls.rollTriggers = controls.rollTriggers;
+
+  const originalRender = SRTTriggerManager.prototype.render;
+  const originalClose = SRTTriggerManager.prototype.close;
+  const originalSetPosition = SRTTriggerManager.prototype.setPosition;
+  let renderCount = 0;
+  let closeCount = 0;
+  let releaseClose = null;
+
+  SRTTriggerManager.prototype.setPosition = function(position) {
+    this.position = position;
+    return this;
+  };
+
+  SRTTriggerManager.prototype.render = function(force, options) {
+    renderCount += 1;
+    return originalRender.call(this, force, options);
+  };
+
+  SRTTriggerManager.prototype.close = function(options) {
+    closeCount += 1;
+    return new Promise((resolve, reject) => {
+      releaseClose = async () => {
+        try {
+          triggerManagerTest.resetManagerApp();
+          resolve(options);
+        } catch (error) {
+          reject(error);
+        }
+      };
+    });
+  };
+
+  try {
+    openTriggerManager();
+    assert.equal(renderCount, 1);
+
+    ui.controls.control = { name: "rollTriggers" };
+    const pendingClose = __test__.toggleTriggerManagerFromSceneControl();
+    __test__.toggleTriggerManagerFromSceneControl();
+
+    assert.equal(closeCount, 1);
+    assert.equal(renderCount, 2);
+
+    await releaseClose?.();
+    await pendingClose;
+  } finally {
+    SRTTriggerManager.prototype.render = originalRender;
+    SRTTriggerManager.prototype.close = originalClose;
+    SRTTriggerManager.prototype.setPosition = originalSetPosition;
+    triggerManagerTest.resetManagerApp();
+  }
 });

@@ -254,6 +254,12 @@
   font-size: 0.74rem;
 }
 
+.srt-inline-action__label {
+  display: inline;
+  color: inherit;
+  font-size: inherit;
+}
+
 .srt-inline-action.is-primary {
   background: linear-gradient(135deg, rgba(181, 81, 45, 0.92), rgba(153, 67, 38, 0.92));
   color: #fff8f4;
@@ -325,6 +331,16 @@
 .srt-card-meta {
   font-size: 0.76rem;
   line-height: 1.2;
+}
+
+.srt-card-meta-label {
+  display: inline;
+  color: var(--srt-ink);
+  font-weight: 700;
+}
+
+.srt-card-meta-separator {
+  margin-right: 0.18rem;
 }
 
 .srt-badge {

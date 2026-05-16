@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 globalThis.game = {
@@ -161,6 +162,20 @@ test("applyManagerTheme sets root and app theme attributes", () => {
   assert.equal(appRoot.dataset.uiTheme, "foundry");
   assert.equal(state.foundry, true);
   assert.equal(state.signature, false);
+});
+
+test("manager template is driven by prelocalized strings", () => {
+  const template = readFileSync(new URL("../templates/trigger-manager.html", import.meta.url), "utf8");
+
+  assert.equal(template.includes("{{localize \"SRT."), false);
+  assert.equal(__test__.getManagerTemplateStrings().title, "SRT.Manager.Title");
+  assert.equal(template.includes("<strong>{{strings.execution}}</strong>"), false);
+  assert.equal(template.includes("srt-card-meta-label"), true);
+  assert.equal(template.includes("srt-inline-action__label"), true);
+  assert.equal(template.includes("{{../strings.execution}}"), true);
+  assert.equal(template.includes("{{../strings.edit}}"), true);
+  assert.equal(template.includes("{{../strings.systemLabel}}"), true);
+  assert.equal(template.includes("{{../strings.importProfile}}"), true);
 });
 
 test("resolveDialogRoot accepts raw elements, jquery-like wrappers, and form containers", () => {

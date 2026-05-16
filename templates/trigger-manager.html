@@ -1,20 +1,20 @@
 <form class="srt-app flexcol" autocomplete="off" data-ui-theme="{{uiTheme}}">
   <section class="srt-hero">
-    <div class="srt-eyebrow">{{localize "SRT.Manager.Eyebrow"}}</div>
+    <div class="srt-eyebrow">{{strings.eyebrow}}</div>
     <div class="srt-heading-row">
       <div class="srt-heading-block">
-        <h2>{{localize "SRT.Manager.Title"}}</h2>
-        <p class="srt-summary">{{localize "SRT.Manager.Summary"}}</p>
-        <p class="srt-scope-summary">{{localize "SRT.Manager.WorldLabel"}}: {{worldTitle}}</p>
+        <h2>{{strings.title}}</h2>
+        <p class="srt-summary">{{strings.summary}}</p>
+        <p class="srt-scope-summary">{{strings.worldLabel}}: {{worldTitle}}</p>
       </div>
       <div class="srt-stat-list">
         <span class="srt-stat-pill">
           <span class="srt-stat-value">{{triggerCount}}</span>
-          <span class="srt-stat-label">{{localize "SRT.Manager.TriggerCount"}}</span>
+          <span class="srt-stat-label">{{strings.triggerCount}}</span>
         </span>
         <span class="srt-stat-pill">
           <span class="srt-stat-value">{{profileCount}}</span>
-          <span class="srt-stat-label">{{localize "SRT.Manager.ProfileCount"}}</span>
+          <span class="srt-stat-label">{{strings.profileCount}}</span>
         </span>
       </div>
     </div>
@@ -24,24 +24,24 @@
     <section class="srt-panel">
       <div class="srt-panel-header">
         <div class="srt-panel-heading">
-          <span class="srt-panel-title">{{localize "SRT.Manager.TriggerPanelTitle"}}</span>
-          <span class="srt-panel-hint">{{localize "SRT.Manager.TriggerPanelHint"}}</span>
+          <span class="srt-panel-title">{{strings.triggerPanelTitle}}</span>
+          <span class="srt-panel-hint">{{strings.triggerPanelHint}}</span>
         </div>
         <div class="srt-toolbar">
           {{#if enableImportExport}}
             <button type="button" class="srt-inline-action" data-action="export-triggers">
               <i class="fas fa-file-export" aria-hidden="true"></i>
-              <span>{{localize "SRT.Manager.Export"}}</span>
+              <span>{{strings.export}}</span>
             </button>
             <button type="button" class="srt-inline-action" data-action="import-triggers">
               <i class="fas fa-file-import" aria-hidden="true"></i>
-              <span>{{localize "SRT.Manager.Import"}}</span>
+              <span>{{strings.import}}</span>
             </button>
             <input type="file" class="srt-import-input" data-action="import-file" accept="application/json,.json" hidden>
           {{/if}}
           <button type="button" class="srt-inline-action is-primary" data-action="create-trigger">
             <i class="fas fa-plus" aria-hidden="true"></i>
-            <span>{{localize "SRT.Manager.Create"}}</span>
+            <span>{{strings.create}}</span>
           </button>
         </div>
       </div>
@@ -61,29 +61,29 @@
               </div>
 
               <div class="srt-card-grid">
-                <div class="srt-card-meta"><strong>{{localize "SRT.Manager.Execution"}}</strong>: {{trigger.executionLabel}}</div>
-                <div class="srt-card-meta"><strong>{{localize "SRT.Manager.Priority"}}</strong>: {{trigger.priority}}</div>
-                <div class="srt-card-meta"><strong>{{localize "SRT.Manager.Match"}}</strong>: {{trigger.matchLabel}}</div>
-                <div class="srt-card-meta"><strong>{{localize "SRT.Manager.Filters"}}</strong>: {{trigger.filtersLabel}}</div>
-                <div class="srt-card-meta"><strong>{{localize "SRT.Manager.ActionLabel"}}</strong>: {{trigger.actionLabel}}</div>
+                <div class="srt-card-meta"><span class="srt-card-meta-label">{{../strings.execution}}</span><span class="srt-card-meta-separator">:</span> {{trigger.executionLabel}}</div>
+                <div class="srt-card-meta"><span class="srt-card-meta-label">{{../strings.priority}}</span><span class="srt-card-meta-separator">:</span> {{trigger.priority}}</div>
+                <div class="srt-card-meta"><span class="srt-card-meta-label">{{../strings.match}}</span><span class="srt-card-meta-separator">:</span> {{trigger.matchLabel}}</div>
+                <div class="srt-card-meta"><span class="srt-card-meta-label">{{../strings.filters}}</span><span class="srt-card-meta-separator">:</span> {{trigger.filtersLabel}}</div>
+                <div class="srt-card-meta"><span class="srt-card-meta-label">{{../strings.actionLabel}}</span><span class="srt-card-meta-separator">:</span> {{trigger.actionLabel}}</div>
               </div>
 
               <div class="srt-card-actions">
                 <button type="button" class="srt-inline-action" data-action="edit-trigger" data-trigger-id="{{trigger.id}}">
                   <i class="fas fa-pen" aria-hidden="true"></i>
-                  <span>{{localize "SRT.Manager.Edit"}}</span>
+                  <span class="srt-inline-action__label">{{../strings.edit}}</span>
                 </button>
                 <button type="button" class="srt-inline-action" data-action="duplicate-trigger" data-trigger-id="{{trigger.id}}">
                   <i class="fas fa-copy" aria-hidden="true"></i>
-                  <span>{{localize "SRT.Manager.Duplicate"}}</span>
+                  <span class="srt-inline-action__label">{{../strings.duplicate}}</span>
                 </button>
                 <button type="button" class="srt-inline-action" data-action="toggle-trigger" data-trigger-id="{{trigger.id}}">
                   <i class="fas fa-power-off" aria-hidden="true"></i>
-                  <span>{{localize "SRT.Manager.Toggle"}}</span>
+                  <span class="srt-inline-action__label">{{../strings.toggle}}</span>
                 </button>
                 <button type="button" class="srt-inline-action is-danger" data-action="delete-trigger" data-trigger-id="{{trigger.id}}">
                   <i class="fas fa-trash" aria-hidden="true"></i>
-                  <span>{{localize "SRT.Manager.Delete"}}</span>
+                  <span class="srt-inline-action__label">{{../strings.delete}}</span>
                 </button>
               </div>
             </article>
@@ -91,8 +91,8 @@
         </div>
       {{else}}
         <div class="srt-empty-state">
-          <div class="srt-empty-title">{{localize "SRT.Manager.EmptyTitle"}}</div>
-          <div class="srt-empty-copy">{{localize "SRT.Manager.Empty"}}</div>
+          <div class="srt-empty-title">{{strings.emptyTitle}}</div>
+          <div class="srt-empty-copy">{{strings.empty}}</div>
         </div>
       {{/if}}
     </section>
@@ -100,18 +100,18 @@
     <aside class="srt-panel">
       <div class="srt-panel-header srt-panel-header--stacked">
         <div class="srt-panel-heading">
-          <span class="srt-panel-title">{{localize "SRT.Manager.ProfilePanelTitle"}}</span>
-          <span class="srt-panel-hint">{{localize "SRT.Manager.ProfilePanelHint"}}</span>
+          <span class="srt-panel-title">{{strings.profilePanelTitle}}</span>
+          <span class="srt-panel-hint">{{strings.profilePanelHint}}</span>
         </div>
         <div class="srt-toolbar">
           {{#if enableImportExport}}
             <button type="button" class="srt-inline-action" data-action="export-profiles">
               <i class="fas fa-file-export" aria-hidden="true"></i>
-              <span>{{localize "SRT.Manager.ExportProfiles"}}</span>
+              <span>{{strings.exportProfiles}}</span>
             </button>
             <button type="button" class="srt-inline-action" data-action="import-profiles">
               <i class="fas fa-file-import" aria-hidden="true"></i>
-              <span>{{localize "SRT.Manager.ImportProfiles"}}</span>
+              <span>{{strings.importProfiles}}</span>
             </button>
             <input type="file" class="srt-import-input" data-action="import-profiles-file" accept="application/json,.json" hidden>
           {{/if}}
@@ -131,12 +131,12 @@
                 </div>
                 <span class="srt-badge">{{profile.sourceLabel}}</span>
               </div>
-              <div class="srt-card-meta"><strong>{{localize "SRT.Manager.SystemLabel"}}</strong>: {{profile.systemId}}</div>
-              <div class="srt-card-meta"><strong>{{localize "SRT.Manager.TriggerCount"}}</strong>: {{profile.triggers.length}}</div>
+              <div class="srt-card-meta"><span class="srt-card-meta-label">{{../strings.systemLabel}}</span><span class="srt-card-meta-separator">:</span> {{profile.systemId}}</div>
+              <div class="srt-card-meta"><span class="srt-card-meta-label">{{../strings.triggerCount}}</span><span class="srt-card-meta-separator">:</span> {{profile.triggers.length}}</div>
               <div class="srt-card-actions">
                 <button type="button" class="srt-inline-action is-primary" data-action="import-profile" data-profile-id="{{profile.id}}">
                   <i class="fas fa-download" aria-hidden="true"></i>
-                  <span>{{localize "SRT.Manager.ImportProfile"}}</span>
+                  <span class="srt-inline-action__label">{{../strings.importProfile}}</span>
                 </button>
               </div>
             </article>
@@ -144,8 +144,8 @@
         </div>
       {{else}}
         <div class="srt-empty-state">
-          <div class="srt-empty-title">{{localize "SRT.Manager.EmptyProfilesTitle"}}</div>
-          <div class="srt-empty-copy">{{localize "SRT.Manager.EmptyProfiles"}}</div>
+          <div class="srt-empty-title">{{strings.emptyProfilesTitle}}</div>
+          <div class="srt-empty-copy">{{strings.emptyProfiles}}</div>
         </div>
       {{/if}}
     </aside>
