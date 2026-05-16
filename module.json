@@ -1,0 +1,34 @@
+{
+  "id": "sephrals-roll-triggers",
+  "title": "Sephral’s Roll Triggers",
+  "description": "Create configurable house-rule triggers for special roll results such as natural 20s, fumbles, doubles, triples, critical successes, and system-specific dice patterns.",
+  "version": "1.0.0",
+  "compatibility": {
+    "minimum": 13,
+    "verified": "14.361"
+  },
+  "authors": [
+    {
+      "name": "Sephral"
+    }
+  ],
+  "url": "https://github.com/Sephral/sephrals-roll-triggers.git",
+  "esmodules": [
+    "scripts/srt.js"
+  ],
+  "styles": [
+    "styles/srt.css"
+  ],
+  "languages": [
+    {
+      "lang": "en",
+      "name": "English",
+      "path": "lang/en.json"
+    },
+    {
+      "lang": "de",
+      "name": "Deutsch",
+      "path": "lang/de.json"
+    }
+  ]
+}
