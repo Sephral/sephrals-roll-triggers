@@ -4,6 +4,12 @@ Sephral's Roll Triggers adds configurable house-rule reactions for special roll 
 
 It watches existing roll chat messages, checks them against your trigger rules, and then runs optional follow-up actions. It does not change dice results, reroll dice, or replace your game system's normal roll resolution.
 
+## Discord
+
+[![Join Discord](https://img.shields.io/badge/Discord-Join%20the%20community-5865F2?logo=discord&logoColor=white)](https://discord.gg/7BjCgDYaBP)
+
+Questions, feedback, and module support are welcome on [Discord](https://discord.gg/7BjCgDYaBP).
+
 ## Features
 
 - Trigger Manager for creating, editing, duplicating, importing, and exporting triggers
