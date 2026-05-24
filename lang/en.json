@@ -126,7 +126,7 @@
   "SRT.DialogHint.TriggerMinCount": "Minimum number of dice that must satisfy the condition. Example: 2 for doubles.",
   "SRT.DialogHint.TriggerDegree": "System-specific success degree to match. Example: criticalSuccess or failure.",
   "SRT.DialogHint.TriggerPath": "System flag path that must exist on the roll event. Example: dnd5e.critical.",
-  "SRT.DialogHint.TriggerExpression": "GM-only JavaScript expression evaluated against event. Example: event.total >= 18 && event.rollType === \"attack\".",
+  "SRT.DialogHint.TriggerExpression": "JavaScript expression evaluated on the GM client against event. Example: event.total >= 18 && event.rollType === \"attack\".",
   "SRT.DialogHint.TriggerRollTypes": "Optional roll type filter. Example: attack, check, damage, or any.",
   "SRT.DialogHint.TriggerActorTypes": "Optional actor type filter. Example: PC only, NPC only, or any actor.",
   "SRT.DialogHint.TriggerVisibilityFilter": "Restrict matching to a roll visibility. Example: public only or blind only.",

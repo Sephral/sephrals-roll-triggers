@@ -6,13 +6,14 @@ import { getInternalProfiles } from "../scripts/default-presets.js";
 test("internal profiles expose the expected starter systems and metadata", () => {
   const profiles = getInternalProfiles();
 
-  assert.equal(profiles.length, 16);
+  assert.equal(profiles.length, 17);
   assert.deepEqual(profiles.map((profile) => profile.id), [
     "dnd5e-core",
     "pf2e-core",
     "dsa5-core",
     "cyberpunk-red-core",
     "coc7-core",
+    "generic-d100-doubles-core",
     "swade-core",
     "alienrpg-core",
     "wfrp4e-core",
@@ -34,12 +35,18 @@ test("internal profile triggers use internal source and stable match shapes", ()
   const profiles = getInternalProfiles();
   const dnd5e = profiles.find((profile) => profile.id === "dnd5e-core");
   const dsa5 = profiles.find((profile) => profile.id === "dsa5-core");
+  const d100 = profiles.find((profile) => profile.id === "generic-d100-doubles-core");
   const gurps = profiles.find((profile) => profile.id === "gurps-core");
 
   assert.equal(dnd5e.triggers[0].source, "internal-preset");
   assert.deepEqual(dnd5e.triggers.map((trigger) => trigger.match.type), ["die-max", "die-min"]);
   assert.deepEqual(dsa5.triggers[0].filters.exactDiceCountByFaces, { 20: 3 });
   assert.equal(dsa5.triggers[1].match.value, 20);
+  assert.equal(d100.triggers[0].match.type, "custom-js");
+  assert.deepEqual(d100.triggers[0].filters.rollType, ["skill", "check"]);
+  assert.deepEqual(d100.triggers[0].filters.exactDiceCountByFaces, { 100: 1 });
+  assert.equal(d100.triggers[0].executionMode, "automatic");
+  assert.equal(d100.triggers[0].actions[0].type, "chat-message");
   assert.deepEqual(gurps.triggers.map((trigger) => trigger.match.type), ["total-below", "total-above"]);
   assert.deepEqual(gurps.triggers[0].filters.exactDiceCountByFaces, { 6: 3 });
 });

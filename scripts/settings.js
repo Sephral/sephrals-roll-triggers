@@ -97,7 +97,14 @@ async function loadModuleTranslations(language) {
   const normalized = normalizeUiLanguage(language);
   if (MODULE_TRANSLATION_CACHE.has(normalized)) return MODULE_TRANSLATION_CACHE.get(normalized);
 
-  const response = await fetch(`modules/${MODULE_ID}/lang/${normalized}.json`);
+  const translationUrl = new URL(`../lang/${normalized}.json`, import.meta.url);
+  if (translationUrl.protocol === "file:") {
+    const emptyTranslations = {};
+    MODULE_TRANSLATION_CACHE.set(normalized, emptyTranslations);
+    return emptyTranslations;
+  }
+
+  const response = await fetch(translationUrl);
   if (!response.ok) throw new Error(`Failed to load ${normalized} translations (${response.status})`);
 
   const translations = await response.json();
