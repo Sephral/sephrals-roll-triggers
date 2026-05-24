@@ -13,13 +13,14 @@ Questions, feedback, and module support are welcome on [Discord](https://discord
 ## Features
 
 - Trigger Manager for creating, editing, duplicating, importing, and exporting triggers
+- Tabbed trigger editor with resizable dialog sizing and Signature or Foundry visual themes
 - GM toolbar icon for toggling the Trigger Manager
-- Match rules for natural highs/lows, exact die values, repeated values, thresholds, totals, success degrees, flags, and GM-only custom expressions
-- Optional filters for roll type, actor type, visibility, combat state, scene, actor, item, and GM/player user context
+- Match rules for natural highs/lows, exact die values, repeated values, thresholds, totals, success degrees, flags, and custom expressions evaluated on the GM processing client
+- Optional filters for roll type, actor type, visibility, combat state, scene, actor, item, and GM/player user context, including multi-value filter editing in the trigger dialog
 - Actions for chat messages, roll tables, macros, journal links, and GM notes
 - Execution modes for automatic runs, GM confirmation, chat buttons, GM whisper logs, or disabled triggers
 - Reusable trigger profiles with separate import/export
-- Built-in starter profiles for several popular Foundry systems
+- Built-in starter profiles for several popular Foundry systems, including a generic d100 doubles preset for skill/check rolls
 - English and German UI with a module language setting
 - Signature and Foundry manager themes
 - Foundry VTT v13 and v14 support
@@ -32,6 +33,7 @@ Questions, feedback, and module support are welcome on [Discord](https://discord
 - Show a chat button so the GM can decide later whether a special effect should happen
 - Link a journal entry with house rules when a matching roll pattern appears
 - Run a macro after rare dice patterns such as doubles, triples, snake eyes, or maximum values
+- Post an improvement reminder when a d100 skill or check roll lands on doubles such as 11, 22, or 33
 
 ## Documentation
 
