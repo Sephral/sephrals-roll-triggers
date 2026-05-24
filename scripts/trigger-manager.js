@@ -1,4 +1,5 @@
 import {
+  ensureModuleTranslationsLoaded,
   format,
   getExecutionModeChoices,
   getProfileStore,
@@ -15,8 +16,10 @@ let managerApp = null;
 const EXPORT_FORMAT_VERSION = 1;
 const PROFILE_EXPORT_FORMAT_VERSION = 1;
 const MAX_ACTION_SLOTS = 3;
-const TRIGGER_DIALOG_MIN_WIDTH = 420;
-const TRIGGER_DIALOG_MIN_HEIGHT = 300;
+const TRIGGER_DIALOG_DEFAULT_WIDTH = 560;
+const TRIGGER_DIALOG_DEFAULT_HEIGHT = 560;
+const TRIGGER_DIALOG_MIN_WIDTH = 440;
+const TRIGGER_DIALOG_MIN_HEIGHT = 420;
 
 const MATCH_TYPE_CHOICES = {
   "die-value": "Match.DieValue",
@@ -136,8 +139,9 @@ function renderDialogLegend(labelKey, hintKey, suffix = "") {
 }
 
 function normalizeCommaList(value) {
-  return String(value ?? "")
-    .split(",")
+  const values = Array.isArray(value) ? value : [value];
+  return values
+    .flatMap((entry) => String(entry ?? "").split(","))
     .map((entry) => entry.trim())
     .filter(Boolean);
 }
@@ -206,6 +210,11 @@ function getSelectedFilterValue(values, defaultValue = "any") {
   return normalizeCommaList(values)[0] ?? defaultValue;
 }
 
+function getSelectedFilterValues(values, defaultValues = []) {
+  const selectedValues = normalizeCommaList(values);
+  return selectedValues.length ? selectedValues : normalizeCommaList(defaultValues);
+}
+
 function getSelectChoices(choices, selectedValues = []) {
   const resolved = { ...choices };
 
@@ -215,6 +224,34 @@ function getSelectChoices(choices, selectedValues = []) {
   }
 
   return resolved;
+}
+
+function getDialogSelectValues(dialogHtml, selector, defaultValues = []) {
+  return getSelectedFilterValues(dialogHtml.find(selector).val(), defaultValues);
+}
+
+function getMultiSelectSummaryLabel(select) {
+  if (!select) return "";
+  const selectedOptions = Array.from(select.selectedOptions ?? [])
+    .map((option) => String(option.textContent ?? "").trim())
+    .filter(Boolean);
+  if (selectedOptions.length) return selectedOptions.join(", ");
+  return String(select.dataset?.srtEmptyLabel ?? "").trim();
+}
+
+function updateMultiSelectSummary(root, selectName) {
+  const summary = root.querySelector?.(`[data-srt-multiselect-summary="${selectName}"]`) ?? null;
+  const select = root.querySelector?.(`select[name="${selectName}"]`) ?? null;
+  if (!summary || !select) return;
+  summary.textContent = getMultiSelectSummaryLabel(select);
+}
+
+function updateAllMultiSelectSummaries(root) {
+  for (const summary of root.querySelectorAll?.("[data-srt-multiselect-summary]") ?? []) {
+    const selectName = summary.dataset?.srtMultiselectSummary;
+    if (!selectName) continue;
+    updateMultiSelectSummary(root, selectName);
+  }
 }
 
 function resolveReferenceEntry(referenceType, value) {
@@ -297,17 +334,19 @@ function applyMatchFieldState(root, matchType) {
   }
 }
 
-function getFilterDetailState({ actorType = "any", rollType = "any" } = {}) {
+function getFilterDetailState({ actorType = [], rollType = [] } = {}) {
+  const actorTypes = normalizeCommaList(actorType).filter((value) => value !== "any");
+  const rollTypes = normalizeCommaList(rollType).filter((value) => value !== "any");
   return {
     scene: true,
-    actor: actorType !== "any",
-    item: ITEM_ROLL_TYPES.has(rollType)
+    actor: actorTypes.length > 0,
+    item: rollTypes.some((value) => ITEM_ROLL_TYPES.has(value))
   };
 }
 
 function applyFilterDetailState(root) {
-  const rollType = root.querySelector?.('select[name="triggerRollTypes"]')?.value ?? "any";
-  const actorType = root.querySelector?.('select[name="triggerActorTypes"]')?.value ?? "any";
+  const rollType = getSelectedFilterValues(root.querySelector?.('select[name="triggerRollTypes"]')?.value ?? []);
+  const actorType = getSelectedFilterValues(root.querySelector?.('select[name="triggerActorTypes"]')?.value ?? []);
   const state = getFilterDetailState({ actorType, rollType });
 
   for (const section of root.querySelectorAll("[data-srt-filter-detail]")) {
@@ -368,6 +407,24 @@ function getTriggerDialogWrapper(root) {
   return root?.closest?.(".dialog, .app, .window-app") ?? null;
 }
 
+function ensureTriggerDialogSize(root) {
+  const wrapper = getTriggerDialogWrapper(root);
+  if (!wrapper) return;
+
+  const rect = typeof wrapper.getBoundingClientRect === "function"
+    ? wrapper.getBoundingClientRect()
+    : { width: 0, height: 0 };
+
+  wrapper.style.minWidth = `${TRIGGER_DIALOG_MIN_WIDTH}px`;
+  wrapper.style.minHeight = `${TRIGGER_DIALOG_MIN_HEIGHT}px`;
+
+  const width = Math.max(Math.round(Number(rect.width) || 0), TRIGGER_DIALOG_DEFAULT_WIDTH, TRIGGER_DIALOG_MIN_WIDTH);
+  const height = Math.max(Math.round(Number(rect.height) || 0), TRIGGER_DIALOG_DEFAULT_HEIGHT, TRIGGER_DIALOG_MIN_HEIGHT);
+
+  wrapper.style.width = `${width}px`;
+  wrapper.style.height = `${height}px`;
+}
+
 function resizeTriggerDialogToContent(root) {
   const wrapper = getTriggerDialogWrapper(root);
   const content = wrapper?.querySelector?.(".window-content") ?? null;
@@ -379,12 +436,33 @@ function resizeTriggerDialogToContent(root) {
 
 function setTriggerDialogTab(root, tabId) {
   const activeTab = TRIGGER_DIALOG_TABS.includes(tabId) ? tabId : TRIGGER_DIALOG_TABS[0];
+  const theme = getTriggerDialogWrapper(root)?.dataset?.uiTheme
+    ?? root?.dataset?.uiTheme
+    ?? getThemePreference();
 
   for (const button of root.querySelectorAll("[data-srt-dialog-tab]")) {
     const isActive = button.dataset.srtDialogTab === activeTab;
     button.classList?.toggle?.("active", isActive);
     if (typeof button.setAttribute === "function") button.setAttribute("aria-selected", isActive ? "true" : "false");
     if ("tabIndex" in button) button.tabIndex = isActive ? 0 : -1;
+
+    if (button.style) {
+      if (theme === "foundry") {
+        button.style.backgroundColor = isActive ? "rgba(255, 255, 255, 0.04)" : "transparent";
+        button.style.backgroundImage = "none";
+        button.style.borderTopColor = isActive ? "rgba(214, 156, 109, 0.18)" : "transparent";
+        button.style.borderRightColor = isActive ? "rgba(214, 156, 109, 0.18)" : "transparent";
+        button.style.borderLeftColor = isActive ? "rgba(214, 156, 109, 0.18)" : "transparent";
+        button.style.borderBottomColor = "transparent";
+      } else {
+        button.style.backgroundColor = "";
+        button.style.backgroundImage = "";
+        button.style.borderTopColor = "";
+        button.style.borderRightColor = "";
+        button.style.borderLeftColor = "";
+        button.style.borderBottomColor = "";
+      }
+    }
   }
 
   for (const panel of root.querySelectorAll("[data-srt-dialog-panel]")) {
@@ -424,9 +502,16 @@ function configureTriggerDialog(dialogHtml) {
   }
 
   for (const filterSelect of root.querySelectorAll('select[name="triggerRollTypes"], select[name="triggerActorTypes"]')) {
-    filterSelect.addEventListener("change", () => applyFilterDetailState(root));
+    filterSelect.addEventListener("change", () => {
+      applyFilterDetailState(root);
+      updateMultiSelectSummary(root, filterSelect.name);
+    });
+  }
+  for (const multiSelect of root.querySelectorAll('select[multiple]')) {
+    multiSelect.addEventListener("change", () => updateMultiSelectSummary(root, multiSelect.name));
   }
   applyFilterDetailState(root);
+  updateAllMultiSelectSummaries(root);
 
   for (const actionContainer of root.querySelectorAll("[data-srt-action-config]")) {
     const select = actionContainer.querySelector("[data-srt-action-type]");
@@ -439,6 +524,7 @@ function configureTriggerDialog(dialogHtml) {
     updateState();
   }
 
+  ensureTriggerDialogSize(root);
   resizeTriggerDialogToContent(root);
   ensureTriggerDialogResizeHandle(root);
 }
@@ -447,6 +533,7 @@ function applyManagerTheme(element, theme = getThemePreference()) {
   if (!element) return;
 
   const resolvedTheme = theme === "foundry" ? "foundry" : "signature";
+  element.classList?.add?.("srt-window");
   element.dataset.uiTheme = resolvedTheme;
   element.classList.toggle("is-theme-foundry", resolvedTheme === "foundry");
   element.classList.toggle("is-theme-signature", resolvedTheme !== "foundry");
@@ -599,6 +686,17 @@ function normalizeOptionalText(value) {
   return String(value).trim() || null;
 }
 
+function normalizeExactDiceCountByFaces(value) {
+  if (!value || typeof value !== "object") return undefined;
+
+  const entries = Object.entries(value)
+    .map(([faces, count]) => [Number(faces), Number(count)])
+    .filter(([faces, count]) => Number.isFinite(faces) && faces > 0 && Number.isFinite(count) && count > 0)
+    .map(([faces, count]) => [String(Math.trunc(faces)), Math.trunc(count)]);
+
+  return entries.length ? Object.fromEntries(entries) : undefined;
+}
+
 function normalizeMatch(match) {
   const type = String(match?.type ?? "die-max");
   const state = getMatchFieldState(type);
@@ -670,6 +768,7 @@ function normalizeTrigger(trigger, fallback = {}) {
       actorType: normalizeCommaList(trigger?.filters?.actorType ?? fallback.actorType ?? ""),
       visibility: normalizeCommaList(trigger?.filters?.visibility ?? fallback.visibility ?? "").filter((value) => value !== "any"),
       combatState: String(trigger?.filters?.combatState ?? fallback.combatState ?? "any"),
+      exactDiceCountByFaces: normalizeExactDiceCountByFaces(trigger?.filters?.exactDiceCountByFaces ?? fallback.exactDiceCountByFaces),
       includeScenes: normalizeCommaList(trigger?.filters?.includeScenes ?? fallback.includeScenes ?? ""),
       includeActors: normalizeCommaList(trigger?.filters?.includeActors ?? fallback.includeActors ?? ""),
       includeItems: normalizeCommaList(trigger?.filters?.includeItems ?? fallback.includeItems ?? ""),
@@ -872,7 +971,10 @@ function presentProfile(profile) {
 }
 
 function buildSelectOptions(choices, selected) {
-  return Object.entries(choices).map(([value, label]) => `<option value="${escapeHtml(value)}" ${value === selected ? "selected" : ""}>${escapeHtml(label)}</option>`).join("");
+  const selectedValues = new Set(normalizeCommaList(selected));
+  return Object.entries(choices)
+    .map(([value, label]) => `<option value="${escapeHtml(value)}" ${selectedValues.has(value) ? "selected" : ""}>${escapeHtml(label)}</option>`)
+    .join("");
 }
 
 async function promptTriggerData(trigger = null, duplicate = false) {
@@ -901,30 +1003,30 @@ async function promptTriggerData(trigger = null, duplicate = false) {
       : localize("Dialog.TriggerCreateTitle");
   const result = await Dialog.prompt({
     title,
-    width: 1280,
-    height: 1188,
+    width: 760,
+    height: 620,
     resizable: true,
     content: `
-      <form class="standard-form">
-        <nav class="sheet-tabs tabs top-tabs" role="tablist" aria-label="${escapeHtml(localize("Dialog.TabsLabel"))}" aria-roledescription="${escapeHtml(localize("Dialog.TabsRoleDescription"))}" data-application-part="tabs">
-          <a class="active" data-action="tab" data-group="sheet" data-tab="general" data-srt-dialog-tab="general" role="tab" aria-selected="true">
-            <i class="fa-solid fa-file-lines" aria-hidden="true" inert></i>
-            <span>${escapeHtml(localize("Dialog.TabGeneral"))}</span>
+      <form class="standard-form srt-trigger-dialog">
+        <nav class="sheet-tabs tabs top-tabs srt-trigger-dialog__tabs" role="tablist" aria-label="${escapeHtml(localize("Dialog.TabsLabel"))}" aria-roledescription="${escapeHtml(localize("Dialog.TabsRoleDescription"))}" data-application-part="tabs">
+          <a class="active srt-trigger-dialog__tab" data-action="tab" data-group="sheet" data-tab="general" data-srt-dialog-tab="general" role="tab" aria-selected="true">
+            <i class="fa-solid fa-file-lines srt-trigger-dialog__tab-icon" aria-hidden="true" inert></i>
+            <span class="srt-trigger-dialog__tab-label">${escapeHtml(localize("Dialog.TabGeneral"))}</span>
           </a>
-          <a data-action="tab" data-group="sheet" data-tab="match" data-srt-dialog-tab="match" role="tab" aria-selected="false">
-            <i class="fa-solid fa-dice-d20" aria-hidden="true" inert></i>
-            <span>${escapeHtml(localize("Dialog.TabMatch"))}</span>
+          <a class="srt-trigger-dialog__tab" data-action="tab" data-group="sheet" data-tab="match" data-srt-dialog-tab="match" role="tab" aria-selected="false">
+            <i class="fa-solid fa-dice-d20 srt-trigger-dialog__tab-icon" aria-hidden="true" inert></i>
+            <span class="srt-trigger-dialog__tab-label">${escapeHtml(localize("Dialog.TabMatch"))}</span>
           </a>
-          <a data-action="tab" data-group="sheet" data-tab="filters" data-srt-dialog-tab="filters" role="tab" aria-selected="false">
-            <i class="fa-solid fa-filter" aria-hidden="true" inert></i>
-            <span>${escapeHtml(localize("Dialog.TabFilters"))}</span>
+          <a class="srt-trigger-dialog__tab" data-action="tab" data-group="sheet" data-tab="filters" data-srt-dialog-tab="filters" role="tab" aria-selected="false">
+            <i class="fa-solid fa-filter srt-trigger-dialog__tab-icon" aria-hidden="true" inert></i>
+            <span class="srt-trigger-dialog__tab-label">${escapeHtml(localize("Dialog.TabFilters"))}</span>
           </a>
-          <a data-action="tab" data-group="sheet" data-tab="actions" data-srt-dialog-tab="actions" role="tab" aria-selected="false">
-            <i class="fa-solid fa-bolt" aria-hidden="true" inert></i>
-            <span>${escapeHtml(localize("Dialog.TabActions"))}</span>
+          <a class="srt-trigger-dialog__tab" data-action="tab" data-group="sheet" data-tab="actions" data-srt-dialog-tab="actions" role="tab" aria-selected="false">
+            <i class="fa-solid fa-bolt srt-trigger-dialog__tab-icon" aria-hidden="true" inert></i>
+            <span class="srt-trigger-dialog__tab-label">${escapeHtml(localize("Dialog.TabActions"))}</span>
           </a>
         </nav>
-        <section class="tab active" data-tab="general" data-group="sheet" data-srt-dialog-panel="general">
+        <section class="tab active srt-trigger-dialog__panel srt-trigger-dialog__panel--general" data-tab="general" data-group="sheet" data-srt-dialog-panel="general">
           <div class="form-group">
             ${renderDialogLabel("Dialog.TriggerName", "DialogHint.TriggerName")}
             <input type="text" name="triggerName" value="${escapeHtml(duplicate ? format("Dialog.DuplicateName", { name: current.name }) : current.name)}" autofocus>
@@ -946,7 +1048,7 @@ async function promptTriggerData(trigger = null, duplicate = false) {
             <select name="triggerExecutionMode">${buildSelectOptions(getExecutionModeChoices(), current.executionMode)}</select>
           </div>
         </section>
-        <section class="tab" data-tab="match" data-group="sheet" data-srt-dialog-panel="match" hidden>
+        <section class="tab srt-trigger-dialog__panel srt-trigger-dialog__panel--match" data-tab="match" data-group="sheet" data-srt-dialog-panel="match" hidden>
           <div class="form-group">
             ${renderDialogLabel("Dialog.TriggerMatchType", "DialogHint.TriggerMatchType")}
             <select name="triggerMatchType">${buildSelectOptions(localizeChoiceMap(MATCH_TYPE_CHOICES), current.match.type)}</select>
@@ -975,23 +1077,26 @@ async function promptTriggerData(trigger = null, duplicate = false) {
             ${renderDialogLabel("Dialog.TriggerPath", "DialogHint.TriggerPath")}
             <input type="text" name="triggerPath" value="${escapeHtml(current.match.path ?? "")}">
           </div>
-          <div class="form-group" data-srt-match-field="expression">
+          <div class="form-group srt-dialog-field--stacked srt-trigger-dialog__expression-field" data-srt-match-field="expression">
             ${renderDialogLabel("Dialog.TriggerExpression", "DialogHint.TriggerExpression")}
-            <input type="text" name="triggerExpression" value="${escapeHtml(current.match.expression ?? "")}">
+            <textarea name="triggerExpression" rows="5" spellcheck="false">${escapeHtml(current.match.expression ?? "")}</textarea>
           </div>
         </section>
-        <section class="tab" data-tab="filters" data-group="sheet" data-srt-dialog-panel="filters" hidden>
+        <section class="tab srt-trigger-dialog__panel srt-trigger-dialog__panel--filters" data-tab="filters" data-group="sheet" data-srt-dialog-panel="filters" hidden>
           <div class="form-group srt-dialog-field--stacked">
             ${renderDialogLabel("Dialog.TriggerRollTypes", "DialogHint.TriggerRollTypes")}
-            <select name="triggerRollTypes">${buildSelectOptions(getSelectChoices(localizeChoiceMap(ROLL_TYPE_CHOICES), current.filters.rollType ?? []), getSelectedFilterValue(current.filters.rollType, "any"))}</select>
+            <div class="srt-multiselect-summary" data-srt-multiselect-summary="triggerRollTypes">${escapeHtml(localize("RollType.Any"))}</div>
+            <select name="triggerRollTypes" multiple size="5">${buildSelectOptions(getSelectChoices(localizeChoiceMap(ROLL_TYPE_CHOICES), current.filters.rollType ?? []), getSelectedFilterValues(current.filters.rollType, ["any"]))}</select>
           </div>
           <div class="form-group srt-dialog-field--stacked">
             ${renderDialogLabel("Dialog.TriggerActorTypes", "DialogHint.TriggerActorTypes")}
-            <select name="triggerActorTypes">${buildSelectOptions(getSelectChoices(localizeChoiceMap(ACTOR_TYPE_CHOICES), current.filters.actorType ?? []), getSelectedFilterValue(current.filters.actorType, "any"))}</select>
+            <div class="srt-multiselect-summary" data-srt-multiselect-summary="triggerActorTypes">${escapeHtml(localize("ActorType.Any"))}</div>
+            <select name="triggerActorTypes" multiple size="4">${buildSelectOptions(getSelectChoices(localizeChoiceMap(ACTOR_TYPE_CHOICES), current.filters.actorType ?? []), getSelectedFilterValues(current.filters.actorType, ["any"]))}</select>
           </div>
           <div class="form-group srt-dialog-field--stacked">
             ${renderDialogLabel("Dialog.TriggerVisibilityFilter", "DialogHint.TriggerVisibilityFilter")}
-            <select name="triggerVisibilityFilter">${buildSelectOptions(getSelectChoices(localizeChoiceMap(FILTER_VISIBILITY_CHOICES), current.filters.visibility ?? []), getSelectedFilterValue(current.filters.visibility, "any"))}</select>
+            <div class="srt-multiselect-summary" data-srt-multiselect-summary="triggerVisibilityFilter">${escapeHtml(localize("Visibility.Any"))}</div>
+            <select name="triggerVisibilityFilter" multiple size="5">${buildSelectOptions(getSelectChoices(localizeChoiceMap(FILTER_VISIBILITY_CHOICES), current.filters.visibility ?? []), getSelectedFilterValues(current.filters.visibility, ["any"]))}</select>
           </div>
           <div class="form-group srt-dialog-field--stacked">
             ${renderDialogLabel("Dialog.TriggerCombatState", "DialogHint.TriggerCombatState")}
@@ -999,15 +1104,18 @@ async function promptTriggerData(trigger = null, duplicate = false) {
           </div>
           <div class="form-group srt-dialog-field--stacked" data-srt-filter-detail="scene">
             ${renderDialogLabel("Dialog.TriggerIncludeScenes", "DialogHint.TriggerIncludeScenes")}
-            <select name="triggerIncludeScenes">${buildSelectOptions({ "": "None", ...getReferenceSelectChoices("scene", current.filters.includeScenes ?? []) }, getSelectedReferenceValue(current.filters.includeScenes))}</select>
+            <div class="srt-multiselect-summary" data-srt-multiselect-summary="triggerIncludeScenes" data-srt-empty-label="-">-</div>
+            <select name="triggerIncludeScenes" multiple size="4">${buildSelectOptions(getReferenceSelectChoices("scene", current.filters.includeScenes ?? []), current.filters.includeScenes ?? [])}</select>
           </div>
           <div class="form-group srt-dialog-field--stacked" data-srt-filter-detail="actor">
             ${renderDialogLabel("Dialog.TriggerIncludeActors", "DialogHint.TriggerIncludeActors")}
-            <select name="triggerIncludeActors">${buildSelectOptions({ "": "None", ...getReferenceSelectChoices("actor", current.filters.includeActors ?? []) }, getSelectedReferenceValue(current.filters.includeActors))}</select>
+            <div class="srt-multiselect-summary" data-srt-multiselect-summary="triggerIncludeActors" data-srt-empty-label="-">-</div>
+            <select name="triggerIncludeActors" multiple size="4">${buildSelectOptions(getReferenceSelectChoices("actor", current.filters.includeActors ?? []), current.filters.includeActors ?? [])}</select>
           </div>
           <div class="form-group srt-dialog-field--stacked" data-srt-filter-detail="item">
             ${renderDialogLabel("Dialog.TriggerIncludeItems", "DialogHint.TriggerIncludeItems")}
-            <select name="triggerIncludeItems">${buildSelectOptions({ "": "None", ...getReferenceSelectChoices("item", current.filters.includeItems ?? []) }, getSelectedReferenceValue(current.filters.includeItems))}</select>
+            <div class="srt-multiselect-summary" data-srt-multiselect-summary="triggerIncludeItems" data-srt-empty-label="-">-</div>
+            <select name="triggerIncludeItems" multiple size="4">${buildSelectOptions(getReferenceSelectChoices("item", current.filters.includeItems ?? []), current.filters.includeItems ?? [])}</select>
           </div>
           <div class="form-group">
             ${renderDialogLabel("Dialog.TriggerPlayerOnly", "DialogHint.TriggerPlayerOnly")}
@@ -1022,7 +1130,7 @@ async function promptTriggerData(trigger = null, duplicate = false) {
             </div>
           </div>
         </section>
-        <section class="tab" data-tab="actions" data-group="sheet" data-srt-dialog-panel="actions" hidden>
+        <section class="tab srt-trigger-dialog__panel srt-trigger-dialog__panel--actions" data-tab="actions" data-group="sheet" data-srt-dialog-panel="actions" hidden>
           ${editableActions.map((action, index) => `
             <fieldset data-srt-action-config>
               ${renderDialogLegend("Dialog.TriggerActionType", "DialogHint.TriggerActionType", String(index + 1))}
@@ -1057,6 +1165,7 @@ async function promptTriggerData(trigger = null, duplicate = false) {
     `,
     label: localize("Dialog.TriggerSubmit"),
     render: (dialogHtml) => {
+      applyDialogTheme(dialogHtml);
       configureTriggerDialog(dialogHtml);
     },
     callback: (dialogHtml) => ({
@@ -1072,14 +1181,14 @@ async function promptTriggerData(trigger = null, duplicate = false) {
       minCount: dialogHtml.find('input[name="triggerMinCount"]').val()?.trim() ?? "1",
       degree: dialogHtml.find('input[name="triggerDegree"]').val()?.trim() ?? "",
       path: dialogHtml.find('input[name="triggerPath"]').val()?.trim() ?? "",
-      expression: dialogHtml.find('input[name="triggerExpression"]').val()?.trim() ?? "",
-      rollTypes: dialogHtml.find('select[name="triggerRollTypes"]').val()?.trim() ?? "any",
-      actorTypes: dialogHtml.find('select[name="triggerActorTypes"]').val()?.trim() ?? "any",
-      visibilityFilter: dialogHtml.find('select[name="triggerVisibilityFilter"]').val()?.trim() ?? "any",
+      expression: dialogHtml.find('textarea[name="triggerExpression"]').val()?.trim() ?? "",
+      rollTypes: getDialogSelectValues(dialogHtml, 'select[name="triggerRollTypes"]', ["any"]),
+      actorTypes: getDialogSelectValues(dialogHtml, 'select[name="triggerActorTypes"]', ["any"]),
+      visibilityFilter: getDialogSelectValues(dialogHtml, 'select[name="triggerVisibilityFilter"]', ["any"]),
       combatState: dialogHtml.find('select[name="triggerCombatState"]').val()?.trim() ?? "any",
-      includeScenes: dialogHtml.find('select[name="triggerIncludeScenes"]').val()?.trim() ?? "",
-      includeActors: dialogHtml.find('select[name="triggerIncludeActors"]').val()?.trim() ?? "",
-      includeItems: dialogHtml.find('select[name="triggerIncludeItems"]').val()?.trim() ?? "",
+      includeScenes: getDialogSelectValues(dialogHtml, 'select[name="triggerIncludeScenes"]'),
+      includeActors: getDialogSelectValues(dialogHtml, 'select[name="triggerIncludeActors"]'),
+      includeItems: getDialogSelectValues(dialogHtml, 'select[name="triggerIncludeItems"]'),
       playerOnly: Boolean(dialogHtml.find('input[name="triggerPlayerOnly"]').prop("checked")),
       gmOnly: Boolean(dialogHtml.find('input[name="triggerGmOnly"]').prop("checked")),
       actions: Array.from({ length: MAX_ACTION_SLOTS }, (_value, index) => ({
@@ -1117,13 +1226,13 @@ async function promptTriggerData(trigger = null, duplicate = false) {
       expression: result.expression
     },
     filters: {
-      rollType: result.rollTypes && result.rollTypes !== "any" ? [result.rollTypes] : [],
-      actorType: result.actorTypes && result.actorTypes !== "any" ? [result.actorTypes] : [],
-      visibility: result.visibilityFilter && result.visibilityFilter !== "any" ? [result.visibilityFilter] : [],
+      rollType: normalizeCommaList(result.rollTypes).filter((value) => value !== "any"),
+      actorType: normalizeCommaList(result.actorTypes).filter((value) => value !== "any"),
+      visibility: normalizeCommaList(result.visibilityFilter).filter((value) => value !== "any"),
       combatState: result.combatState,
-      includeScenes: result.includeScenes ? [result.includeScenes] : [],
-      includeActors: result.includeActors ? [result.includeActors] : [],
-      includeItems: result.includeItems ? [result.includeItems] : [],
+      includeScenes: normalizeCommaList(result.includeScenes),
+      includeActors: normalizeCommaList(result.includeActors),
+      includeItems: normalizeCommaList(result.includeItems),
       playerOnly: Boolean(result.playerOnly),
       gmOnly: Boolean(result.gmOnly)
     },
@@ -1132,39 +1241,42 @@ async function promptTriggerData(trigger = null, duplicate = false) {
   });
 }
 
-export function openTriggerManager() {
+export async function openTriggerManager() {
+  await ensureModuleTranslationsLoaded();
   if (!managerApp) managerApp = new SRTTriggerManager();
   managerApp.options ??= {};
   managerApp.options.title = localize("Manager.Title");
-  managerApp.render(true);
+  await Promise.resolve(managerApp.render(true));
 
   const viewportWidth = globalThis.window?.innerWidth ?? 1600;
   const viewportHeight = globalThis.window?.innerHeight ?? 900;
   const width = Math.min(1080, Math.max(viewportWidth - 80, 720));
   const height = Math.min(760, Math.max(viewportHeight - 80, 520));
-  managerApp.setPosition({
-    width,
-    height,
-    left: Math.max(Math.round((viewportWidth - width) / 2), 20),
-    top: Math.max(Math.round((viewportHeight - height) / 2), 20)
-  });
+  if (managerApp?.element?.[0] || managerApp?.rendered) {
+    managerApp.setPosition({
+      width,
+      height,
+      left: Math.max(Math.round((viewportWidth - width) / 2), 20),
+      top: Math.max(Math.round((viewportHeight - height) / 2), 20)
+    });
+  }
 
   return managerApp;
 }
 
-export function toggleTriggerManager() {
+export async function toggleTriggerManager() {
   if (managerApp) {
     const app = managerApp;
     managerApp = null;
-    return app.close({ force: true });
+    return Promise.resolve(app.close({ force: true }));
   }
 
-  return openTriggerManager();
+  return await openTriggerManager();
 }
 
 export class SRTSettingsMenu extends FormApplication {
   render(force, options) {
-    openTriggerManager();
+    void openTriggerManager();
     return this;
   }
 
@@ -1437,10 +1549,15 @@ export const __test__ = {
   getDialogTooltip,
   renderDialogLabel,
   getSelectedFilterValue,
+  getSelectedFilterValues,
   getSelectChoices,
+  getMultiSelectSummaryLabel,
+  updateMultiSelectSummary,
+  updateAllMultiSelectSummaries,
   normalizeAction,
   normalizeActionList,
   normalizeMatch,
+  normalizeExactDiceCountByFaces,
   buildEditableActions,
   normalizeTrigger,
   normalizeProfile,
@@ -1453,6 +1570,8 @@ export const __test__ = {
   formatReferenceList,
   parseReferenceToken,
   parseReferenceList,
+  getDialogSelectValues,
+  buildSelectOptions,
   getMatchFieldState,
   getFilterDetailState,
   getActionFieldState,
@@ -1463,6 +1582,7 @@ export const __test__ = {
   calculateTriggerDialogResize,
   applyActionFieldState,
   getTriggerDialogWrapper,
+  ensureTriggerDialogSize,
   resizeTriggerDialogToContent,
   setTriggerDialogTab,
   configureTriggerDialog,

@@ -164,12 +164,12 @@ test("scene control toggle can reopen while a prior close is still pending", asy
   };
 
   try {
-    openTriggerManager();
+    await openTriggerManager();
     assert.equal(renderCount, 1);
 
     ui.controls.control = { name: "rollTriggers" };
     const pendingClose = __test__.toggleTriggerManagerFromSceneControl();
-    __test__.toggleTriggerManagerFromSceneControl();
+    await __test__.toggleTriggerManagerFromSceneControl();
 
     assert.equal(closeCount, 1);
     assert.equal(renderCount, 2);

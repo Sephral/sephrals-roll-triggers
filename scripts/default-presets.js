@@ -140,6 +140,51 @@ export function getInternalProfiles() {
       ]
     }),
     createProfile({
+      id: "generic-d100-doubles-core",
+      name: "Generic d100 Doubles Starter",
+      systemId: "generic",
+      description: "Starter profile for d100 doubles on skill or check rolls.",
+      triggers: [
+        createTrigger({
+          id: "generic-d100-skill-doubles",
+          name: "Doubles on d100 skill check",
+          description: "Posts a reminder when a d100 skill or check roll lands on 11, 22, 33, and so on.",
+          priority: 300,
+          executionMode: "automatic",
+          match: {
+            type: "custom-js",
+            expression: "Number.isInteger(event.total) && event.total >= 11 && event.total <= 99 && event.total % 11 === 0"
+          },
+          filters: {
+            rollType: ["skill", "check"],
+            exactDiceCountByFaces: { 100: 1 }
+          },
+          actions: [{
+            type: "chat-message",
+            visibility: "public",
+            template: "Doubles on d100 ({{roll.total}}). Mark the tested skill for improvement."
+          }]
+        }),
+        createTrigger({
+          id: "generic-d100-skill-100",
+          name: "100 on d100 skill check",
+          description: "Optional companion trigger for groups that want a dedicated 100 reminder beside doubles.",
+          priority: 290,
+          executionMode: "automatic",
+          match: { type: "die-value", faces: 100, value: 100, minCount: 1 },
+          filters: {
+            rollType: ["skill", "check"],
+            exactDiceCountByFaces: { 100: 1 }
+          },
+          actions: [{
+            type: "chat-message",
+            visibility: "public",
+            template: "100 on d100. Resolve your table's special outcome for this skill roll."
+          }]
+        })
+      ]
+    }),
+    createProfile({
       id: "swade-core",
       name: "Savage Worlds Starter",
       systemId: "swade",

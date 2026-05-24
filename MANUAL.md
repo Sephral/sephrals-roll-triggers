@@ -64,7 +64,7 @@ Generic match types include:
 - The total is above or below a threshold
 - A system success degree matches
 - A system flag exists
-- A GM-only custom JavaScript expression returns true
+- A custom JavaScript expression evaluated on the GM client returns true
 
 The editor only shows fields relevant to the selected match type. For example, `Die shows its maximum` only needs die faces.
 

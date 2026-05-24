@@ -134,3 +134,83 @@ test("renderChatMessage hides internal deferred relay messages", () => {
   assert.equal(html.hidden, true);
   assert.equal(html.style.display, "none");
 });
+
+test("processChatMessage evaluates custom-js triggers for player-authored rolls on the GM client", async () => {
+  ChatMessage.created.length = 0;
+  game.user = { id: "gm-1", isGM: true, name: "GM" };
+
+  const event = {
+    rollIndex: 0,
+    rollType: "skill",
+    total: 22,
+    formula: "1d100",
+    diceResults: [{ faces: 100, value: 22 }],
+    userId: "player-1",
+    user: { id: "player-1", isGM: false, name: "Player One" },
+    actorId: "actor-1",
+    actorName: "Investigator",
+    actorType: "pc",
+    visibility: "public",
+    isCombat: false,
+    sceneId: "scene-1",
+    flags: {}
+  };
+
+  const message = {
+    id: "message-player-roll",
+    uuid: "ChatMessage.message-player-roll",
+    getFlag(scope, key) {
+      if (scope !== "sephrals-roll-triggers" || key !== "processed") return null;
+      return this._processed ?? null;
+    },
+    async setFlag(scope, key, value) {
+      if (scope === "sephrals-roll-triggers" && key === "processed") {
+        this._processed = value;
+      }
+      return value;
+    }
+  };
+
+  const service = new RollTriggerService({
+    adapter: {
+      supportsMessage() {
+        return true;
+      },
+      extractRollEvents() {
+        return [event];
+      }
+    },
+    settings: {
+      enabled: true,
+      debug: false,
+      allowPlayerButtons: true,
+      storeTriggeredInChat: true,
+      moduleId: "sephrals-roll-triggers",
+      defaultExecutionMode: "automatic",
+      respectPrivateRolls: true,
+      maxActionsPerMessage: 5,
+      getTriggers() {
+        return [{
+          id: "player-doubles",
+          enabled: true,
+          executionMode: "automatic",
+          filters: { rollType: ["skill"] },
+          match: {
+            type: "custom-js",
+            expression: 'event.total >= 11 && event.total <= 99 && event.total % 11 === 0'
+          },
+          actions: [{
+            type: "chat-message",
+            template: "{{actor.name}} can mark {{roll.total}} for improvement"
+          }]
+        }];
+      }
+    }
+  });
+
+  await service.processChatMessage(message);
+
+  assert.equal(ChatMessage.created.length, 1);
+  assert.equal(ChatMessage.created[0].content, "Investigator can mark 22 for improvement");
+  assert.equal(message._processed, true);
+});

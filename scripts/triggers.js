@@ -94,7 +94,7 @@ function passesFilters(trigger, event, options = {}) {
 }
 
 function evaluateCustomJs(match, event) {
-  if (!event.user?.isGM || !match.expression) return false;
+  if (!game.user?.isGM || !match.expression) return false;
   const evaluator = new Function("event", `return Boolean(${match.expression});`);
   return Boolean(evaluator(event));
 }

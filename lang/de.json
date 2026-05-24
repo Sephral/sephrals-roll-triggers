@@ -126,7 +126,7 @@
   "SRT.DialogHint.TriggerMinCount": "Mindestanzahl an Würfeln, die die Bedingung erfüllen müssen. Beispiel: 2 für Doubles.",
   "SRT.DialogHint.TriggerDegree": "Systemspezifische Erfolgsstufe für den Match. Beispiel: criticalSuccess oder failure.",
   "SRT.DialogHint.TriggerPath": "System-Flag-Pfad, der im Roll-Event vorhanden sein muss. Beispiel: dnd5e.critical.",
-  "SRT.DialogHint.TriggerExpression": "Nur für GMs: JavaScript-Ausdruck gegen event. Beispiel: event.total >= 18 && event.rollType === \"attack\".",
+  "SRT.DialogHint.TriggerExpression": "JavaScript-Ausdruck, der auf dem GM-Client gegen event ausgewertet wird. Beispiel: event.total >= 18 && event.rollType === \"attack\".",
   "SRT.DialogHint.TriggerRollTypes": "Optionaler Roll-Typ-Filter. Beispiel: attack, check, damage oder any.",
   "SRT.DialogHint.TriggerActorTypes": "Optionaler Actor-Typ-Filter. Beispiel: nur SC, nur NSC oder beliebiger Actor.",
   "SRT.DialogHint.TriggerVisibilityFilter": "Beschränkt den Match auf eine Sichtbarkeit. Beispiel: nur öffentlich oder nur blind.",

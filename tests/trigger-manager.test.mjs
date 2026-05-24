@@ -231,11 +231,41 @@ test("reference select choices expose normal combobox labels and selected ids", 
 
 test("filter select helpers keep known labels and preserve unknown selected values", () => {
   assert.equal(__test__.getSelectedFilterValue(["attack", "damage"], "any"), "attack");
+  assert.deepEqual(__test__.getSelectedFilterValues(["attack", "damage"], ["any"]), ["attack", "damage"]);
+  assert.deepEqual(__test__.getSelectedFilterValues([], ["any"]), ["any"]);
   assert.deepEqual(__test__.getSelectChoices({ any: "Any", attack: "Attack" }, ["custom-type"]), {
     any: "Any",
     attack: "Attack",
     "custom-type": "custom-type"
   });
+});
+
+test("buildSelectOptions marks multiple selected values", () => {
+  assert.equal(
+    __test__.buildSelectOptions({ attack: "Attack", skill: "Skill", check: "Check" }, ["skill", "check"]),
+    '<option value="attack" >Attack</option><option value="skill" selected>Skill</option><option value="check" selected>Check</option>'
+  );
+});
+
+test("getMultiSelectSummaryLabel uses selected option labels or the empty fallback", () => {
+  assert.equal(
+    __test__.getMultiSelectSummaryLabel({
+      selectedOptions: [
+        { textContent: "Skill" },
+        { textContent: "Check" }
+      ],
+      dataset: { srtEmptyLabel: "Any roll type" }
+    }),
+    "Skill, Check"
+  );
+
+  assert.equal(
+    __test__.getMultiSelectSummaryLabel({
+      selectedOptions: [],
+      dataset: { srtEmptyLabel: "Any roll type" }
+    }),
+    "Any roll type"
+  );
 });
 
 test("getActionFieldState matches action-specific editor fields", () => {
@@ -325,6 +355,11 @@ test("filter detail state follows broad filter selections", () => {
     actor: true,
     item: true
   });
+  assert.deepEqual(__test__.getFilterDetailState({ actorType: ["pc", "npc"], rollType: ["initiative", "skill"] }), {
+    scene: true,
+    actor: true,
+    item: true
+  });
 });
 
 test("applyFilterDetailState hides irrelevant detail filters", () => {
@@ -335,8 +370,8 @@ test("applyFilterDetailState hides irrelevant detail filters", () => {
   ];
   const root = {
     querySelector(selector) {
-      if (selector === 'select[name="triggerRollTypes"]') return { value: "initiative" };
-      if (selector === 'select[name="triggerActorTypes"]') return { value: "any" };
+      if (selector === 'select[name="triggerRollTypes"]') return { value: ["initiative", "skill"] };
+      if (selector === 'select[name="triggerActorTypes"]') return { value: ["any"] };
       return null;
     },
     querySelectorAll() {
@@ -348,7 +383,7 @@ test("applyFilterDetailState hides irrelevant detail filters", () => {
 
   assert.equal(sections[0].hidden, false);
   assert.equal(sections[1].hidden, true);
-  assert.equal(sections[2].hidden, true);
+  assert.equal(sections[2].hidden, false);
 });
 
 test("configureTriggerDialog wires select change handlers and applies initial state", () => {
@@ -372,12 +407,34 @@ test("configureTriggerDialog wires select change handlers and applies initial st
       return sections;
     }
   };
+  const rollTypeSelect = {
+    name: "triggerRollTypes",
+    value: ["skill", "check"],
+    selectedOptions: [{ textContent: "Skill" }, { textContent: "Check" }],
+    handlers: [],
+    addEventListener(_event, handler) {
+      this.handlers.push(handler);
+    }
+  };
+  const rollTypeSummary = { dataset: { srtMultiselectSummary: "triggerRollTypes" }, textContent: "" };
   const root = new HTMLElement();
-  root.querySelectorAll = (selector) => selector === "[data-srt-action-config]" ? [actionContainer] : [];
+  root.querySelector = (selector) => {
+    if (selector === 'select[name="triggerRollTypes"]') return rollTypeSelect;
+    if (selector === '[data-srt-multiselect-summary="triggerRollTypes"]') return rollTypeSummary;
+    return null;
+  };
+  root.querySelectorAll = (selector) => {
+    if (selector === "[data-srt-action-config]") return [actionContainer];
+    if (selector === 'select[name="triggerRollTypes"], select[name="triggerActorTypes"]') return [rollTypeSelect];
+    if (selector === "select[multiple]") return [rollTypeSelect];
+    if (selector === "[data-srt-multiselect-summary]") return [rollTypeSummary];
+    return [];
+  };
 
   __test__.configureTriggerDialog(root);
   assert.equal(sections[0].hidden, false);
   assert.equal(sections[2].hidden, true);
+  assert.equal(rollTypeSummary.textContent, "Skill, Check");
 
   select.value = "macro";
   select.handler();
@@ -480,6 +537,46 @@ test("resizeTriggerDialogToContent clears stale auto-height markers without forc
   assert.equal(wrapper.dataset.srtAutoHeight, undefined);
 });
 
+test("ensureTriggerDialogSize applies the intended default dialog footprint", () => {
+  const wrapper = {
+    style: {},
+    getBoundingClientRect() {
+      return { width: 400, height: 328 };
+    }
+  };
+  const root = {
+    closest() {
+      return wrapper;
+    }
+  };
+
+  __test__.ensureTriggerDialogSize(root);
+
+  assert.equal(wrapper.style.minWidth, `${__test__.TRIGGER_DIALOG_MIN_WIDTH}px`);
+  assert.equal(wrapper.style.minHeight, `${__test__.TRIGGER_DIALOG_MIN_HEIGHT}px`);
+  assert.equal(wrapper.style.width, "560px");
+  assert.equal(wrapper.style.height, "560px");
+});
+
+test("ensureTriggerDialogSize keeps a narrower minimum than the default width", () => {
+  const wrapper = {
+    style: {},
+    getBoundingClientRect() {
+      return { width: 520, height: 500 };
+    }
+  };
+  const root = {
+    closest() {
+      return wrapper;
+    }
+  };
+
+  __test__.ensureTriggerDialogSize(root);
+
+  assert.equal(wrapper.style.minWidth, "440px");
+  assert.equal(wrapper.style.width, "560px");
+});
+
 test("calculateTriggerDialogResize follows mouse delta with compact minimums", () => {
   assert.deepEqual(
     __test__.calculateTriggerDialogResize({
@@ -515,6 +612,7 @@ test("normalizeTrigger keeps advanced filter settings", () => {
       actorType: ["npc"],
       visibility: ["blind", "gm-private"],
       combatState: "out-of-combat",
+      exactDiceCountByFaces: { 100: 1, 20: 2 },
       includeScenes: ["scene-a"],
       includeActors: ["actor-a"],
       includeItems: ["item-a"],
@@ -528,6 +626,7 @@ test("normalizeTrigger keeps advanced filter settings", () => {
     actorType: ["npc"],
     visibility: ["blind", "gm-private"],
     combatState: "out-of-combat",
+    exactDiceCountByFaces: { 20: 2, 100: 1 },
     includeScenes: ["scene-a"],
     includeActors: ["actor-a"],
     includeItems: ["item-a"],

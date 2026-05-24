@@ -116,13 +116,14 @@ test("evaluateMatchCondition covers thresholds, system flags, and custom js", ()
       }
     }
   };
+  globalThis.game = { user: { isGM: true } };
 
   const event = createEvent({
     diceResults: [{ faces: 6, value: 2 }, { faces: 6, value: 5 }, { faces: 6, value: 5 }],
     total: 18,
     successDegree: "critical-success",
     flags: { system: { critical: true } },
-    user: { isGM: true }
+    user: { isGM: false }
   });
 
   assert.equal(evaluateMatchCondition({ type: "die-result-above", faces: 6, threshold: 4 }, event), true);
@@ -132,6 +133,14 @@ test("evaluateMatchCondition covers thresholds, system flags, and custom js", ()
   assert.equal(evaluateMatchCondition({ type: "success-degree", degree: "critical-success" }, event), true);
   assert.equal(evaluateMatchCondition({ type: "system-flag", path: "system.critical" }, event), true);
   assert.equal(evaluateMatchCondition({ type: "custom-js", expression: 'event.total === 18 && event.rollType === "attack"' }, event), true);
-  assert.equal(evaluateMatchCondition({ type: "custom-js", expression: 'event.total === 17' }, { ...event, user: { isGM: false } }), false);
+  assert.equal(
+    evaluateMatchCondition(
+      { type: "custom-js", expression: 'event.rollType === "skill" && event.total >= 11 && event.total <= 99 && event.total % 11 === 0' },
+      createEvent({ rollType: "skill", total: 22, user: { isGM: false } })
+    ),
+    true
+  );
+  globalThis.game = { user: { isGM: false } };
+  assert.equal(evaluateMatchCondition({ type: "custom-js", expression: 'event.total === 17' }, event), false);
   assert.equal(evaluateMatchCondition({ type: "unknown" }, event), false);
 });
