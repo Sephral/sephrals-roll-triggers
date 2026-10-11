@@ -115,6 +115,19 @@ const MATCH_FIELD_VISIBILITY = {
   "custom-js": { faces: false, value: false, threshold: false, minCount: false, degree: false, path: false, expression: true }
 };
 
+// Shared input definitions for the primary match and every additional AND condition.
+const MATCH_INPUT_FIELDS = [
+  { field: "faces", inputName: "triggerFaces", input: "number", labelKey: "Dialog.TriggerFaces", hintKey: "DialogHint.TriggerFaces" },
+  { field: "value", inputName: "triggerValue", input: "number", labelKey: "Dialog.TriggerValue", hintKey: "DialogHint.TriggerValue" },
+  { field: "threshold", inputName: "triggerThreshold", input: "number", labelKey: "Dialog.TriggerThreshold", hintKey: "DialogHint.TriggerThreshold" },
+  { field: "minCount", inputName: "triggerMinCount", input: "number", labelKey: "Dialog.TriggerMinCount", hintKey: "DialogHint.TriggerMinCount", fallback: 1 },
+  { field: "degree", inputName: "triggerDegree", input: "text", labelKey: "Dialog.TriggerDegree", hintKey: "DialogHint.TriggerDegree" },
+  { field: "path", inputName: "triggerPath", input: "text", labelKey: "Dialog.TriggerPath", hintKey: "DialogHint.TriggerPath" },
+  { field: "expression", inputName: "triggerExpression", input: "textarea", labelKey: "Dialog.TriggerExpression", hintKey: "DialogHint.TriggerExpression" }
+];
+
+const DEFAULT_EXTRA_MATCH = Object.freeze({ type: "die-value", faces: null, value: null, threshold: null, minCount: 1, degree: null, path: null, expression: null });
+
 const TRIGGER_DIALOG_TABS = ["general", "match", "filters", "actions"];
 const ITEM_ROLL_TYPES = new Set(["attack", "check", "save", "damage", "healing", "skill"]);
 
@@ -334,6 +347,141 @@ function applyMatchFieldState(root, matchType) {
   }
 }
 
+function applyExtraMatchFieldState(condition, matchType) {
+  const state = getMatchFieldState(matchType);
+  for (const section of condition.querySelectorAll("[data-srt-extra-match-field]")) {
+    const field = section.dataset.srtExtraMatchField;
+    section.hidden = !state[field];
+  }
+}
+
+function renderMatchFieldGroups(match, { extra = false } = {}) {
+  return MATCH_INPUT_FIELDS.map((definition) => {
+    const fieldAttribute = extra
+      ? `data-srt-extra-match-field="${definition.field}"`
+      : `data-srt-match-field="${definition.field}"`;
+    const inputAttribute = extra
+      ? `data-srt-extra-match-input="${definition.field}"`
+      : `name="${definition.inputName}"`;
+    const value = escapeHtml(match?.[definition.field] ?? definition.fallback ?? "");
+    const label = renderDialogLabel(definition.labelKey, definition.hintKey);
+
+    if (definition.input === "textarea") {
+      return `
+          <div class="form-group srt-dialog-field--stacked srt-trigger-dialog__expression-field" ${fieldAttribute}>
+            ${label}
+            <textarea ${inputAttribute} rows="${extra ? 3 : 5}" spellcheck="false">${value}</textarea>
+          </div>`;
+    }
+
+    return `
+          <div class="form-group" ${fieldAttribute}>
+            ${label}
+            <input type="${definition.input}" ${inputAttribute} value="${value}">
+          </div>`;
+  }).join("");
+}
+
+function renderExtraMatchCondition(match, index) {
+  const legendTooltip = getDialogTooltip("DialogHint.TriggerExtraMatch");
+  const removeTooltip = getDialogTooltip("DialogHint.TriggerExtraMatchRemove");
+  const type = String(match?.type ?? DEFAULT_EXTRA_MATCH.type);
+
+  return `
+        <fieldset class="srt-extra-match" data-srt-extra-match>
+          <legend title="${legendTooltip}">${escapeHtml(localize("Dialog.TriggerExtraMatch"))} <span data-srt-extra-match-number>${Number(index) + 1}</span></legend>
+          <div class="form-group">
+            ${renderDialogLabel("Dialog.TriggerMatchType", "DialogHint.TriggerMatchType")}
+            <select data-srt-extra-match-input="type">${buildSelectOptions(localizeChoiceMap(MATCH_TYPE_CHOICES), type)}</select>
+          </div>
+          ${renderMatchFieldGroups(match, { extra: true })}
+          <div class="srt-extra-match__actions">
+            <button type="button" class="srt-inline-action is-danger" data-srt-extra-match-remove title="${removeTooltip}">
+              <i class="fa-solid fa-trash" aria-hidden="true"></i>
+              <span class="srt-inline-action__label">${escapeHtml(localize("Dialog.TriggerExtraMatchRemove"))}</span>
+            </button>
+          </div>
+        </fieldset>`;
+}
+
+function renderExtraMatchSection(extraMatches = []) {
+  const addTooltip = getDialogTooltip("DialogHint.TriggerExtraMatchAdd");
+
+  return `
+          <div class="srt-extra-matches" data-srt-extra-matches>
+            <div class="srt-extra-matches__list" data-srt-extra-match-list>
+              ${extraMatches.map((match, index) => renderExtraMatchCondition(match, index)).join("")}
+            </div>
+            <div class="srt-extra-matches__toolbar">
+              <button type="button" class="srt-inline-action" data-srt-extra-match-add title="${addTooltip}">
+                <i class="fa-solid fa-plus" aria-hidden="true"></i>
+                <span class="srt-inline-action__label">${escapeHtml(localize("Dialog.TriggerExtraMatchAdd"))}</span>
+              </button>
+            </div>
+          </div>`;
+}
+
+function renumberExtraMatchConditions(list) {
+  Array.from(list?.querySelectorAll?.("[data-srt-extra-match]") ?? []).forEach((condition, index) => {
+    const number = condition.querySelector?.("[data-srt-extra-match-number]");
+    if (number) number.textContent = String(index + 1);
+  });
+}
+
+function wireExtraMatchCondition(condition, list) {
+  const select = condition.querySelector?.('[data-srt-extra-match-input="type"]') ?? null;
+  if (select) {
+    const updateState = () => applyExtraMatchFieldState(condition, select.value);
+    select.addEventListener("change", updateState);
+    updateState();
+  }
+
+  condition.querySelector?.("[data-srt-extra-match-remove]")?.addEventListener("click", (event) => {
+    event?.preventDefault?.();
+    condition.remove();
+    renumberExtraMatchConditions(list);
+  });
+}
+
+function configureExtraMatchConditions(root) {
+  const section = root.querySelector?.("[data-srt-extra-matches]") ?? null;
+  const list = section?.querySelector?.("[data-srt-extra-match-list]") ?? null;
+  if (!section || !list) return;
+
+  for (const condition of list.querySelectorAll?.("[data-srt-extra-match]") ?? []) wireExtraMatchCondition(condition, list);
+
+  section.querySelector?.("[data-srt-extra-match-add]")?.addEventListener("click", (event) => {
+    event?.preventDefault?.();
+    const index = list.querySelectorAll("[data-srt-extra-match]").length;
+    list.insertAdjacentHTML("beforeend", renderExtraMatchCondition(DEFAULT_EXTRA_MATCH, index));
+    const condition = list.lastElementChild;
+    if (!condition) return;
+    wireExtraMatchCondition(condition, list);
+    condition.querySelector?.('[data-srt-extra-match-input="type"]')?.focus?.();
+  });
+}
+
+function readExtraMatchCondition(condition) {
+  const read = (field) => String(condition.querySelector?.(`[data-srt-extra-match-input="${field}"]`)?.value ?? "").trim();
+
+  return {
+    type: read("type") || DEFAULT_EXTRA_MATCH.type,
+    faces: read("faces"),
+    value: read("value"),
+    threshold: read("threshold"),
+    minCount: read("minCount") || "1",
+    degree: read("degree"),
+    path: read("path"),
+    expression: read("expression")
+  };
+}
+
+function readExtraMatchesFromDialog(dialogHtml) {
+  const root = resolveDialogRoot(dialogHtml);
+  if (!root?.querySelectorAll) return [];
+  return Array.from(root.querySelectorAll("[data-srt-extra-match]")).map((condition) => readExtraMatchCondition(condition));
+}
+
 function getFilterDetailState({ actorType = [], rollType = [] } = {}) {
   const actorTypes = normalizeCommaList(actorType).filter((value) => value !== "any");
   const rollTypes = normalizeCommaList(rollType).filter((value) => value !== "any");
@@ -500,6 +648,7 @@ function configureTriggerDialog(dialogHtml) {
     matchTypeSelect.addEventListener("change", updateMatchState);
     updateMatchState();
   }
+  configureExtraMatchConditions(root);
 
   for (const filterSelect of root.querySelectorAll('select[name="triggerRollTypes"], select[name="triggerActorTypes"]')) {
     filterSelect.addEventListener("change", () => {
@@ -580,19 +729,35 @@ function getActionSummary(trigger) {
   }).join(" + ");
 }
 
+// Empty match fields are null after normalization. Number(null) would display them as 0.
+function getDisplayNumber(value) {
+  if (value == null || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
 function describeMatch(match) {
   if (!match) return "-";
   const base = localize(MATCH_TYPE_CHOICES[match.type] ?? "Match.DieValue");
   const state = getMatchFieldState(match.type);
   const parts = [base];
-  if (state.faces && Number.isFinite(Number(match.faces))) parts.push(`d${Number(match.faces)}`);
-  if (state.value && Number.isFinite(Number(match.value))) parts.push(String(Number(match.value)));
-  if (state.threshold && Number.isFinite(Number(match.threshold))) parts.push(String(Number(match.threshold)));
+  const faces = getDisplayNumber(match.faces);
+  const value = getDisplayNumber(match.value);
+  const threshold = getDisplayNumber(match.threshold);
+  if (state.faces && faces > 0) parts.push(`d${faces}`);
+  if (state.value && value != null) parts.push(String(value));
+  if (state.threshold && threshold != null) parts.push(String(threshold));
   if (state.minCount && Number.isFinite(Number(match.minCount)) && Number(match.minCount) > 1) parts.push(`x${Number(match.minCount)}`);
   if (state.degree && match.degree != null && String(match.degree).trim()) parts.push(String(match.degree).trim());
   if (state.path && match.path != null && String(match.path).trim()) parts.push(String(match.path).trim());
   if (state.expression && match.expression != null && String(match.expression).trim()) parts.push(String(match.expression).trim());
   return parts.join(" | ");
+}
+
+function describeTriggerMatches(trigger) {
+  const extraMatches = Array.isArray(trigger?.extraMatches) ? trigger.extraMatches.filter(Boolean) : [];
+  if (!extraMatches.length) return describeMatch(trigger?.match);
+  return [trigger?.match, ...extraMatches].map((match) => describeMatch(match)).join(` ${localize("Manager.MatchAnd")} `);
 }
 
 function describeFilters(filters) {
@@ -714,6 +879,14 @@ function normalizeMatch(match) {
   };
 }
 
+// Additional AND conditions share the match shape. Missing or invalid input yields an empty list.
+function normalizeExtraMatches(extraMatches) {
+  if (!Array.isArray(extraMatches)) return [];
+  return extraMatches
+    .filter((match) => match && typeof match === "object" && !Array.isArray(match))
+    .map((match) => normalizeMatch(match));
+}
+
 function buildEditableActions(actions) {
   const editable = normalizeActionList(actions);
   while (editable.length < MAX_ACTION_SLOTS) editable.push({ type: "none", template: "", tables: [], macro: "", journal: "", visibility: "public" });
@@ -763,6 +936,7 @@ function normalizeTrigger(trigger, fallback = {}) {
     executionMode: String(trigger?.executionMode ?? fallback.executionMode ?? "confirm-gm"),
     visibilityMode: String(trigger?.visibilityMode ?? "inherit"),
     match: normalizeMatch(match),
+    extraMatches: normalizeExtraMatches(trigger?.extraMatches ?? fallback.extraMatches),
     filters: {
       rollType: normalizeCommaList(trigger?.filters?.rollType ?? fallback.rollType ?? ""),
       actorType: normalizeCommaList(trigger?.filters?.actorType ?? fallback.actorType ?? ""),
@@ -955,7 +1129,7 @@ function presentTrigger(trigger) {
     ...trigger,
     enabledLabel: trigger.enabled ? localize("Manager.Enabled") : localize("Manager.Disabled"),
     executionLabel: localize(`Execution.${trigger.executionMode === "confirm-gm" ? "ConfirmGm" : trigger.executionMode === "gm-whisper-log" ? "GmWhisperLog" : trigger.executionMode === "chat-button" ? "ChatButton" : trigger.executionMode === "disabled" ? "Disabled" : "Automatic"}`),
-    matchLabel: describeMatch(trigger.match),
+    matchLabel: describeTriggerMatches(trigger),
     filtersLabel: describeFilters(trigger.filters),
     actionLabel: getActionSummary(trigger)
   };
@@ -1053,34 +1227,8 @@ async function promptTriggerData(trigger = null, duplicate = false) {
             ${renderDialogLabel("Dialog.TriggerMatchType", "DialogHint.TriggerMatchType")}
             <select name="triggerMatchType">${buildSelectOptions(localizeChoiceMap(MATCH_TYPE_CHOICES), current.match.type)}</select>
           </div>
-          <div class="form-group" data-srt-match-field="faces">
-            ${renderDialogLabel("Dialog.TriggerFaces", "DialogHint.TriggerFaces")}
-            <input type="number" name="triggerFaces" value="${current.match.faces ?? ""}">
-          </div>
-          <div class="form-group" data-srt-match-field="value">
-            ${renderDialogLabel("Dialog.TriggerValue", "DialogHint.TriggerValue")}
-            <input type="number" name="triggerValue" value="${current.match.value ?? ""}">
-          </div>
-          <div class="form-group" data-srt-match-field="threshold">
-            ${renderDialogLabel("Dialog.TriggerThreshold", "DialogHint.TriggerThreshold")}
-            <input type="number" name="triggerThreshold" value="${current.match.threshold ?? ""}">
-          </div>
-          <div class="form-group" data-srt-match-field="minCount">
-            ${renderDialogLabel("Dialog.TriggerMinCount", "DialogHint.TriggerMinCount")}
-            <input type="number" name="triggerMinCount" value="${current.match.minCount ?? 1}">
-          </div>
-          <div class="form-group" data-srt-match-field="degree">
-            ${renderDialogLabel("Dialog.TriggerDegree", "DialogHint.TriggerDegree")}
-            <input type="text" name="triggerDegree" value="${escapeHtml(current.match.degree ?? "")}">
-          </div>
-          <div class="form-group" data-srt-match-field="path">
-            ${renderDialogLabel("Dialog.TriggerPath", "DialogHint.TriggerPath")}
-            <input type="text" name="triggerPath" value="${escapeHtml(current.match.path ?? "")}">
-          </div>
-          <div class="form-group srt-dialog-field--stacked srt-trigger-dialog__expression-field" data-srt-match-field="expression">
-            ${renderDialogLabel("Dialog.TriggerExpression", "DialogHint.TriggerExpression")}
-            <textarea name="triggerExpression" rows="5" spellcheck="false">${escapeHtml(current.match.expression ?? "")}</textarea>
-          </div>
+          ${renderMatchFieldGroups(current.match)}
+          ${renderExtraMatchSection(current.extraMatches)}
         </section>
         <section class="tab srt-trigger-dialog__panel srt-trigger-dialog__panel--filters" data-tab="filters" data-group="sheet" data-srt-dialog-panel="filters" hidden>
           <div class="form-group srt-dialog-field--stacked">
@@ -1182,6 +1330,7 @@ async function promptTriggerData(trigger = null, duplicate = false) {
       degree: dialogHtml.find('input[name="triggerDegree"]').val()?.trim() ?? "",
       path: dialogHtml.find('input[name="triggerPath"]').val()?.trim() ?? "",
       expression: dialogHtml.find('textarea[name="triggerExpression"]').val()?.trim() ?? "",
+      extraMatches: readExtraMatchesFromDialog(dialogHtml),
       rollTypes: getDialogSelectValues(dialogHtml, 'select[name="triggerRollTypes"]', ["any"]),
       actorTypes: getDialogSelectValues(dialogHtml, 'select[name="triggerActorTypes"]', ["any"]),
       visibilityFilter: getDialogSelectValues(dialogHtml, 'select[name="triggerVisibilityFilter"]', ["any"]),
@@ -1225,6 +1374,7 @@ async function promptTriggerData(trigger = null, duplicate = false) {
       path: result.path,
       expression: result.expression
     },
+    extraMatches: Array.isArray(result.extraMatches) ? result.extraMatches : [],
     filters: {
       rollType: normalizeCommaList(result.rollTypes).filter((value) => value !== "any"),
       actorType: normalizeCommaList(result.actorTypes).filter((value) => value !== "any"),
@@ -1542,6 +1692,8 @@ export const __test__ = {
   COMBAT_STATE_CHOICES,
   ACTION_FIELD_VISIBILITY,
   MATCH_FIELD_VISIBILITY,
+  MATCH_INPUT_FIELDS,
+  DEFAULT_EXTRA_MATCH,
   ITEM_ROLL_TYPES,
   normalizeCommaList,
   getCollectionEntries,
@@ -1557,6 +1709,7 @@ export const __test__ = {
   normalizeAction,
   normalizeActionList,
   normalizeMatch,
+  normalizeExtraMatches,
   normalizeExactDiceCountByFaces,
   buildEditableActions,
   normalizeTrigger,
@@ -1577,6 +1730,13 @@ export const __test__ = {
   getActionFieldState,
   resolveDialogRoot,
   applyMatchFieldState,
+  applyExtraMatchFieldState,
+  renderMatchFieldGroups,
+  renderExtraMatchCondition,
+  renderExtraMatchSection,
+  configureExtraMatchConditions,
+  readExtraMatchCondition,
+  readExtraMatchesFromDialog,
   applyFilterDetailState,
   ensureTriggerDialogResizeHandle,
   calculateTriggerDialogResize,
@@ -1587,6 +1747,7 @@ export const __test__ = {
   setTriggerDialogTab,
   configureTriggerDialog,
   describeMatch,
+  describeTriggerMatches,
   describeFilters,
   buildTriggerExportPayload,
   buildProfileExportPayload,
@@ -1600,6 +1761,7 @@ export const __test__ = {
   presentTrigger,
   presentProfile,
   getManagerTemplateStrings,
+  promptTriggerData,
   applyManagerTheme,
   resetManagerApp() {
     managerApp = null;

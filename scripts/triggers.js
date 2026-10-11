@@ -3,8 +3,12 @@ function normalizeArray(value) {
 }
 
 function getDiceByFaces(event, faces) {
-  if (!Number.isFinite(Number(faces))) return event.diceResults ?? [];
-  return (event.diceResults ?? []).filter((entry) => Number(entry.faces) === Number(faces));
+  const dice = event.diceResults ?? [];
+  // An empty faces field (null after normalization) means "any die", not "dice with 0 faces".
+  if (faces == null || faces === "") return dice;
+  const number = Number(faces);
+  if (!Number.isFinite(number) || number <= 0) return dice;
+  return dice.filter((entry) => Number(entry.faces) === number);
 }
 
 function countByValue(entries, value) {
@@ -143,10 +147,22 @@ export function evaluateMatchCondition(match, event) {
   }
 }
 
+// The primary `match` plus every entry of the optional `extraMatches` array (logical AND).
+export function getTriggerConditions(trigger) {
+  const extraMatches = Array.isArray(trigger?.extraMatches)
+    ? trigger.extraMatches.filter((condition) => condition && typeof condition === "object")
+    : [];
+  return [trigger?.match ?? {}, ...extraMatches];
+}
+
+export function evaluateTriggerConditions(trigger, event) {
+  return getTriggerConditions(trigger).every((condition) => evaluateMatchCondition(condition, event));
+}
+
 export function matchTrigger(trigger, event, options = {}) {
   if (!trigger?.enabled) return null;
   if (!passesFilters(trigger, event, options)) return null;
-  if (!evaluateMatchCondition(trigger.match ?? {}, event)) return null;
+  if (!evaluateTriggerConditions(trigger, event)) return null;
 
   return {
     trigger,

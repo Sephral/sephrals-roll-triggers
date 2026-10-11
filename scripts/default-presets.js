@@ -13,6 +13,7 @@ function createTrigger(overrides) {
     executionMode: overrides.executionMode ?? "confirm-gm",
     visibilityMode: overrides.visibilityMode ?? "inherit",
     match: overrides.match,
+    extraMatches: overrides.extraMatches ?? [],
     filters: overrides.filters ?? {},
     actions: overrides.actions ?? [],
     source: overrides.source ?? "internal-preset"

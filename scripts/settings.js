@@ -93,6 +93,18 @@ export function getModuleLanguage(preferredLanguage = getPreferredLanguage()) {
   return normalizeUiLanguage(game.i18n?.lang);
 }
 
+// Bundled translations only override game.i18n for an explicit language choice.
+// "Follow Foundry" returns null so community translations in game.i18n stay in effect.
+export function getModuleOverrideLanguage(preferredLanguage = getPreferredLanguage()) {
+  return SUPPORTED_UI_LANGUAGES.includes(preferredLanguage) ? preferredLanguage : null;
+}
+
+function getModuleOverride(fullKey) {
+  const language = getModuleOverrideLanguage();
+  if (!language) return null;
+  return MODULE_TRANSLATION_CACHE.get(language)?.[fullKey] ?? null;
+}
+
 async function loadModuleTranslations(language) {
   const normalized = normalizeUiLanguage(language);
   if (MODULE_TRANSLATION_CACHE.has(normalized)) return MODULE_TRANSLATION_CACHE.get(normalized);
@@ -141,14 +153,14 @@ export function getThemePreference() {
 
 export function localize(key) {
   const fullKey = `SRT.${key}`;
-  const override = MODULE_TRANSLATION_CACHE.get(getModuleLanguage())?.[fullKey];
+  const override = getModuleOverride(fullKey);
   if (override) return override;
   return game.i18n.localize(fullKey);
 }
 
 export function format(key, data) {
   const fullKey = `SRT.${key}`;
-  const override = MODULE_TRANSLATION_CACHE.get(getModuleLanguage())?.[fullKey];
+  const override = getModuleOverride(fullKey);
   if (override) return interpolateTemplate(override, data);
   return game.i18n.format(fullKey, data);
 }
@@ -323,8 +335,10 @@ export const __test__ = {
   UI_THEMES,
   SUPPORTED_UI_LANGUAGES,
   getRegisteredSettingValue,
+  MODULE_TRANSLATION_CACHE,
   normalizeUiLanguage,
   getModuleLanguage,
+  getModuleOverrideLanguage,
   normalizeTheme,
   getThemePreference,
   localize,

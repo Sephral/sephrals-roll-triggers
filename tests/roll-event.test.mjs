@@ -217,6 +217,53 @@ test("createRollEvent prefers raw source user data before deprecated message.use
   assert.equal(event.user?.name, "Author User");
 });
 
+test("createRollEvent reads the author source field without touching the deprecated user field", () => {
+  globalThis.game = {
+    system: { id: "dnd5e", version: "5.3.3" },
+    combat: { started: false },
+    user: { id: "gm", isGM: true, name: "GM" },
+    users: {
+      get(id) {
+        return id === "u5" ? { id: "u5", name: "Player Five", isGM: false } : null;
+      }
+    },
+    settings: {
+      get() {
+        return "publicroll";
+      }
+    },
+    scenes: { get() { return null; } }
+  };
+  globalThis.canvas = null;
+  globalThis.foundry = { dice: { terms: { DiceTerm } } };
+
+  const roll = {
+    formula: "1d20",
+    total: 4,
+    terms: [new DiceTerm("1d20", 4, 20, [{ result: 4, active: true, discarded: false }])]
+  };
+  const message = {
+    id: "m5",
+    _source: {
+      author: "u5",
+      get user() {
+        throw new Error("the deprecated source field should not be read");
+      }
+    },
+    speaker: {},
+    flags: {},
+    getAssociatedActor() {
+      return null;
+    },
+    rolls: [roll]
+  };
+
+  const event = createRollEvent(message, roll, 0, "generic");
+
+  assert.equal(event.userId, "u5");
+  assert.equal(event.user?.name, "Player Five");
+});
+
 test("createRollEvent falls back to current game user without touching deprecated accessors", () => {
   globalThis.game = {
     system: { id: "dnd5e", version: "5.2.0" },

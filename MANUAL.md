@@ -27,7 +27,7 @@ The manager contains two areas:
 Important settings:
 
 - Enable roll triggers: turns runtime processing on or off for the world
-- Module language: follow Foundry, force German, or force English for module UI text
+- Module language: follow Foundry, force German, or force English for module UI text. Follow Foundry uses Foundry's language, including community translations of this module
 - Manager theme: Signature or Foundry visual theme
 - Default execution mode: default behavior for newly created triggers
 - Allow player buttons: lets players see and request chat-button trigger execution
@@ -42,7 +42,7 @@ Important settings:
 A trigger has four main parts:
 
 - General: name, description, priority, and execution mode
-- Match: the dice or roll condition that must be true
+- Match: the dice or roll condition that must be true, plus optional AND conditions
 - Filters: optional context restrictions
 - Actions: what happens when the trigger matches
 
@@ -66,7 +66,15 @@ Generic match types include:
 - A system flag exists
 - A custom JavaScript expression evaluated on the GM client returns true
 
-The editor only shows fields relevant to the selected match type. For example, `Die shows its maximum` only needs die faces.
+The editor only shows fields relevant to the selected match type. For example, `Die shows its maximum` only needs die faces. Leave die faces empty to check every die of the roll.
+
+## AND Conditions
+
+Below the main match, `Add AND condition` adds a further condition with its own match type and fields. The trigger only fires when the main match and every added condition are true for the same roll. `Remove condition` deletes one again.
+
+Each condition checks the whole roll on its own. Example for Savage Worlds: main match `Die shows a specific value` with value 1, plus an AND condition `Die shows a specific value` with value 2. To require two dice with the same value, use `At least N dice show a specific value` instead of two identical conditions.
+
+Custom JavaScript conditions are evaluated on the GM client, as for the main match. The trigger list shows all conditions joined with AND. Trigger and profile exports include the AND conditions, and older exports without them still import.
 
 ## Filters
 

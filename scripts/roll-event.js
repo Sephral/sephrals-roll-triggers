@@ -103,7 +103,9 @@ function inferSuccessDegree(message, roll) {
 }
 
 function getMessageUserData(message) {
-  const userId = message?._source?.user ?? message?.speaker?.user ?? game.user?.id ?? null;
+  // The source field is "author" since v12. Reading "user" logs a deprecation in v13 and is gone in v14,
+  // so it is only a fallback for messages that lack the new field.
+  const userId = message?._source?.author ?? message?._source?.user ?? message?.speaker?.user ?? game.user?.id ?? null;
   const user = game.users?.get?.(userId) ?? (game.user?.id === userId ? game.user : null) ?? game.user ?? null;
 
   return { user, userId };

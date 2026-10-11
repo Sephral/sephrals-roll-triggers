@@ -954,6 +954,58 @@
   transform: none;
 }
 
+.srt-trigger-dialog [data-srt-match-field][hidden],
+.srt-trigger-dialog [data-srt-extra-match-field][hidden] {
+  display: none;
+}
+
+.srt-trigger-dialog .srt-extra-matches,
+.srt-trigger-dialog .srt-extra-matches__list,
+.srt-trigger-dialog .srt-extra-match {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.srt-trigger-dialog .srt-extra-matches__list {
+  gap: 0.6rem;
+}
+
+.srt-trigger-dialog .srt-extra-matches__toolbar,
+.srt-trigger-dialog .srt-extra-match__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.srt-trigger-dialog .srt-inline-action {
+  color: var(--srt-ink, #1f1a17);
+  cursor: pointer;
+}
+
+.srt-trigger-dialog .srt-inline-action.is-danger {
+  color: var(--srt-rose, #8c3e47);
+}
+
+.srt-window[data-ui-theme="foundry"] .srt-trigger-dialog .srt-inline-action {
+  background: rgba(255, 255, 255, 0.04);
+  color: #e6e1d8;
+  border-color: rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+.srt-window[data-ui-theme="foundry"] .srt-trigger-dialog .srt-inline-action.is-danger {
+  background: rgba(140, 62, 71, 0.16);
+  color: #f0c6cc;
+  border-color: rgba(140, 62, 71, 0.24);
+}
+
+.srt-window[data-ui-theme="foundry"] .srt-trigger-dialog .srt-inline-action:hover,
+.srt-window[data-ui-theme="foundry"] .srt-trigger-dialog .srt-inline-action:focus {
+  border-color: rgba(214, 156, 109, 0.22);
+  box-shadow: none;
+}
+
 @media (max-width: 900px) {
   .srt-heading-row {
     flex-direction: column;

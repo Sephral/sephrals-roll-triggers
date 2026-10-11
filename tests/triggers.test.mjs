@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { collectMatches, evaluateMatchCondition, matchTrigger } from "../scripts/triggers.js";
+import {
+  collectMatches,
+  evaluateMatchCondition,
+  evaluateTriggerConditions,
+  getTriggerConditions,
+  matchTrigger
+} from "../scripts/triggers.js";
 
 function createEvent(overrides = {}) {
   return {
@@ -143,4 +149,84 @@ test("evaluateMatchCondition covers thresholds, system flags, and custom js", ()
   globalThis.game = { user: { isGM: false } };
   assert.equal(evaluateMatchCondition({ type: "custom-js", expression: 'event.total === 17' }, event), false);
   assert.equal(evaluateMatchCondition({ type: "unknown" }, event), false);
+});
+test("empty die faces means any die instead of dice with zero faces", () => {
+  const event = createEvent({ diceResults: [{ faces: 8, value: 1 }, { faces: 6, value: 2 }] });
+
+  assert.equal(evaluateMatchCondition({ type: "die-value", faces: null, value: 1, minCount: 1 }, event), true);
+  assert.equal(evaluateMatchCondition({ type: "die-value", faces: "", value: 2, minCount: 1 }, event), true);
+  assert.equal(evaluateMatchCondition({ type: "die-value", faces: 6, value: 1, minCount: 1 }, event), false);
+  assert.equal(evaluateMatchCondition({ type: "die-min", faces: null, minCount: 1 }, event), true);
+});
+
+test("getTriggerConditions returns the primary match followed by valid extra conditions", () => {
+  const primary = { type: "die-value", value: 1 };
+  const extra = { type: "die-value", value: 2 };
+
+  assert.deepEqual(getTriggerConditions({ match: primary }), [primary]);
+  assert.deepEqual(getTriggerConditions({ match: primary, extraMatches: [extra, null, "x"] }), [primary, extra]);
+  assert.deepEqual(getTriggerConditions({ match: primary, extraMatches: "invalid" }), [primary]);
+  assert.deepEqual(getTriggerConditions({}), [{}]);
+});
+
+test("matchTrigger requires the primary match and every extra condition for the same roll", () => {
+  const trigger = {
+    id: "swade-one-two",
+    enabled: true,
+    executionMode: "automatic",
+    filters: {},
+    match: { type: "die-value", faces: null, value: 1, minCount: 1 },
+    extraMatches: [{ type: "die-value", faces: null, value: 2, minCount: 1 }],
+    actions: []
+  };
+
+  const hit = createEvent({ diceResults: [{ faces: 8, value: 1 }, { faces: 6, value: 2 }], total: 3 });
+  const onlyPrimary = createEvent({ diceResults: [{ faces: 8, value: 1 }, { faces: 6, value: 5 }], total: 6 });
+  const onlyExtra = createEvent({ diceResults: [{ faces: 8, value: 4 }, { faces: 6, value: 2 }], total: 6 });
+
+  assert.equal(matchTrigger(trigger, hit)?.trigger.id, "swade-one-two");
+  assert.equal(matchTrigger(trigger, onlyPrimary), null);
+  assert.equal(matchTrigger(trigger, onlyExtra), null);
+  assert.equal(evaluateTriggerConditions(trigger, hit), true);
+  assert.equal(evaluateTriggerConditions(trigger, onlyPrimary), false);
+
+  const threeWay = {
+    ...trigger,
+    extraMatches: [...trigger.extraMatches, { type: "total-above", threshold: 2 }]
+  };
+  assert.ok(matchTrigger(threeWay, hit));
+  assert.equal(matchTrigger({ ...threeWay, extraMatches: [...trigger.extraMatches, { type: "total-above", threshold: 3 }] }, hit), null);
+});
+
+test("matchTrigger keeps the primary only behavior without extra conditions", () => {
+  const base = {
+    id: "nat20",
+    enabled: true,
+    filters: {},
+    match: { type: "die-max", faces: 20, minCount: 1 },
+    actions: []
+  };
+
+  for (const trigger of [base, { ...base, extraMatches: [] }, { ...base, extraMatches: null }, { ...base, extraMatches: [null] }]) {
+    assert.ok(matchTrigger(trigger, createEvent()));
+    assert.equal(matchTrigger(trigger, createEvent({ diceResults: [{ faces: 20, value: 7 }] })), null);
+  }
+});
+
+test("custom js extra conditions keep the GM only evaluation rule", () => {
+  const trigger = {
+    id: "custom-and",
+    enabled: true,
+    filters: {},
+    match: { type: "die-max", faces: 20, minCount: 1 },
+    extraMatches: [{ type: "custom-js", expression: "event.total === 25" }],
+    actions: []
+  };
+
+  globalThis.game = { user: { isGM: true } };
+  assert.ok(matchTrigger(trigger, createEvent()));
+  assert.equal(matchTrigger(trigger, createEvent({ total: 24 })), null);
+
+  globalThis.game = { user: { isGM: false } };
+  assert.equal(matchTrigger(trigger, createEvent()), null);
 });

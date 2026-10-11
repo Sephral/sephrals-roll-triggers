@@ -808,6 +808,309 @@ test("mergeImportedProfiles replaces matching ids and adds new profiles", () => 
   assert.equal(result.profiles[0].triggers[0].name, "Updated");
 });
 
+test("normalizeTrigger normalizes extra AND conditions and defaults to an empty list", () => {
+  assert.deepEqual(__test__.normalizeTrigger({ id: "legacy", name: "Legacy" }).extraMatches, []);
+  assert.deepEqual(__test__.normalizeTrigger({ id: "bad", name: "Bad", extraMatches: "die-value" }).extraMatches, []);
+
+  const trigger = __test__.normalizeTrigger({
+    id: "and",
+    name: "And",
+    match: { type: "die-value", value: "1" },
+    extraMatches: [
+      { type: "die-value", faces: "6", value: "2", threshold: "9", expression: "ignored" },
+      null,
+      ["not", "a", "match"],
+      { type: "total-above", threshold: "10", faces: "6" }
+    ]
+  });
+
+  assert.deepEqual(trigger.extraMatches, [
+    { type: "die-value", faces: 6, value: 2, threshold: null, minCount: 1, degree: null, path: null, expression: null, enabled: false },
+    { type: "total-above", faces: null, value: null, threshold: 10, minCount: 1, degree: null, path: null, expression: null, enabled: false }
+  ]);
+  assert.equal(trigger.match.value, 1);
+});
+
+test("trigger export includes extra conditions and imports without them keep working", () => {
+  const payload = __test__.buildTriggerExportPayload([
+    { id: "nat20", name: "Natural 20", match: { type: "die-max", faces: 20, minCount: 1 } },
+    { id: "and", name: "And", match: { type: "die-value", value: 1 }, extraMatches: [{ type: "die-value", value: 2 }] }
+  ]);
+
+  assert.deepEqual(payload.triggers[0].extraMatches, []);
+  assert.equal(payload.triggers[1].extraMatches.length, 1);
+  assert.equal(payload.triggers[1].extraMatches[0].value, 2);
+
+  const roundTrip = __test__.parseImportedTriggerPayload(JSON.parse(JSON.stringify(payload)));
+  assert.deepEqual(roundTrip[1].extraMatches, payload.triggers[1].extraMatches);
+
+  const legacyImport = __test__.parseImportedTriggerPayload({
+    module: "sephrals-roll-triggers",
+    formatVersion: 1,
+    triggers: [{ id: "old", name: "Old export", match: { type: "die-min", faces: 20, minCount: 1 } }]
+  });
+  assert.deepEqual(legacyImport[0].extraMatches, []);
+  assert.equal(legacyImport[0].match.type, "die-min");
+
+  const merged = __test__.mergeImportedTriggers(
+    [{ id: "and", name: "And", match: { type: "die-value", value: 1 } }],
+    roundTrip
+  );
+  assert.equal(merged.replaced, 1);
+  assert.equal(merged.triggers.find((trigger) => trigger.id === "and").extraMatches[0].value, 2);
+});
+
+test("profiles and profile clones keep extra conditions", () => {
+  const profile = __test__.normalizeProfile({
+    id: "swade",
+    name: "Savage Worlds",
+    triggers: [{ id: "one-two", name: "One and two", match: { type: "die-value", value: 1 }, extraMatches: [{ type: "die-value", value: 2 }] }]
+  });
+
+  assert.equal(profile.triggers[0].extraMatches[0].value, 2);
+  assert.equal(__test__.buildProfileExportPayload([profile]).profiles[0].triggers[0].extraMatches[0].value, 2);
+  assert.equal(__test__.cloneProfileTrigger(profile, profile.triggers[0]).extraMatches[0].value, 2);
+  assert.deepEqual(__test__.normalizeProfile({ id: "p", name: "P", triggers: [{ id: "t", name: "T" }] }).triggers[0].extraMatches, []);
+});
+
+test("trigger summary joins all conditions with the localized AND", () => {
+  const single = __test__.normalizeTrigger({ id: "single", name: "Single", match: { type: "die-max", faces: 20 } });
+  assert.equal(__test__.describeTriggerMatches(single), "SRT.Match.DieMax | d20");
+  assert.equal(__test__.presentTrigger(single).matchLabel, "SRT.Match.DieMax | d20");
+
+  const combined = __test__.normalizeTrigger({
+    id: "combined",
+    name: "Combined",
+    match: { type: "die-value", value: 1 },
+    extraMatches: [{ type: "die-value", faces: 6, value: 2 }, { type: "total-above", threshold: 2 }]
+  });
+  assert.equal(
+    __test__.presentTrigger(combined).matchLabel,
+    "SRT.Match.DieValue | 1 SRT.Manager.MatchAnd SRT.Match.DieValue | d6 | 2 SRT.Manager.MatchAnd SRT.Match.TotalAbove | 2"
+  );
+});
+
+test("renderMatchFieldGroups keeps primary input names and uses scoped attributes for extra conditions", () => {
+  const primary = __test__.renderMatchFieldGroups({ faces: 20, minCount: 1, expression: "event.total > 1" });
+  assert.equal((primary.match(/data-srt-match-field=/g) ?? []).length, __test__.MATCH_INPUT_FIELDS.length);
+  assert.match(primary, /name="triggerFaces" value="20"/);
+  assert.match(primary, /name="triggerValue" value=""/);
+  assert.match(primary, /name="triggerMinCount" value="1"/);
+  assert.match(primary, /<textarea name="triggerExpression" rows="5" spellcheck="false">event.total > 1<\/textarea>/);
+  assert.equal(primary.includes("data-srt-extra-match"), false);
+
+  const extra = __test__.renderMatchFieldGroups({ faces: 6, value: 2 }, { extra: true });
+  assert.equal((extra.match(/data-srt-extra-match-field=/g) ?? []).length, __test__.MATCH_INPUT_FIELDS.length);
+  assert.match(extra, /data-srt-extra-match-input="value" value="2"/);
+  assert.match(extra, /data-srt-extra-match-input="minCount" value="1"/);
+  assert.equal(extra.includes('name="trigger'), false);
+  assert.equal(extra.includes("data-srt-match-field"), false);
+});
+
+test("extra condition markup renders type select, numbering, remove and add buttons", () => {
+  const condition = __test__.renderExtraMatchCondition({ type: "total-above", threshold: 12 }, 1);
+  assert.match(condition, /data-srt-extra-match>/);
+  assert.match(condition, /SRT.Dialog.TriggerExtraMatch <span data-srt-extra-match-number>2<\/span>/);
+  assert.match(condition, /<option value="total-above" selected>SRT.Match.TotalAbove<\/option>/);
+  assert.match(condition, /data-srt-extra-match-input="threshold" value="12"/);
+  assert.match(condition, /<button type="button" class="srt-inline-action is-danger" data-srt-extra-match-remove/);
+  assert.match(condition, /SRT.Dialog.TriggerExtraMatchRemove/);
+
+  const section = __test__.renderExtraMatchSection([{ type: "die-value", value: 1 }, { type: "die-value", value: 2 }]);
+  assert.equal((section.match(/data-srt-extra-match>/g) ?? []).length, 2);
+  assert.match(section, /<button type="button" class="srt-inline-action" data-srt-extra-match-add/);
+  assert.match(section, /SRT.Dialog.TriggerExtraMatchAdd/);
+  assert.equal((__test__.renderExtraMatchSection([]).match(/data-srt-extra-match>/g) ?? []).length, 0);
+});
+
+test("configureExtraMatchConditions toggles fields, adds and removes conditions", () => {
+  const list = createFakeExtraMatchList();
+  const existing = createFakeExtraCondition({ type: "total-above", threshold: "5" });
+  list.append(existing);
+  const addButton = createFakeButton();
+  const section = {
+    querySelector(selector) {
+      if (selector === "[data-srt-extra-match-list]") return list;
+      if (selector === "[data-srt-extra-match-add]") return addButton;
+      return null;
+    }
+  };
+  const root = {
+    querySelector(selector) {
+      return selector === "[data-srt-extra-matches]" ? section : null;
+    }
+  };
+
+  __test__.configureExtraMatchConditions(root);
+  assert.equal(existing.section("threshold").hidden, false);
+  assert.equal(existing.section("faces").hidden, true);
+  assert.equal(existing.section("value").hidden, true);
+
+  existing.inputs.type.value = "die-value";
+  existing.inputs.type.handlers[0]();
+  assert.equal(existing.section("faces").hidden, false);
+  assert.equal(existing.section("value").hidden, false);
+  assert.equal(existing.section("threshold").hidden, true);
+
+  addButton.handlers[0]({ preventDefault() {} });
+  assert.equal(list.items.length, 2);
+  assert.match(list.inserted[0], /<span data-srt-extra-match-number>2<\/span>/);
+  assert.match(list.inserted[0], /<option value="die-value" selected>/);
+  const added = list.items[1];
+  assert.equal(added.inputs.type.focused, true);
+  assert.equal(added.section("value").hidden, false);
+  assert.equal(added.section("threshold").hidden, true);
+
+  existing.removeButton.handlers[0]({ preventDefault() {} });
+  assert.deepEqual(list.items, [added]);
+  assert.equal(added.number.textContent, "1");
+});
+
+test("readExtraMatchesFromDialog reads each condition for normalizeTrigger", () => {
+  const root = new HTMLElement();
+  const conditions = [
+    createFakeExtraCondition({ type: "die-value", faces: "6", value: " 2 ", minCount: "" }),
+    createFakeExtraCondition({ type: "custom-js", expression: " event.total > 3 " })
+  ];
+  root.querySelectorAll = (selector) => selector === "[data-srt-extra-match]" ? conditions : [];
+
+  const read = __test__.readExtraMatchesFromDialog(root);
+  assert.deepEqual(read[0], { type: "die-value", faces: "6", value: "2", threshold: "", minCount: "1", degree: "", path: "", expression: "" });
+  assert.equal(read[1].expression, "event.total > 3");
+  assert.deepEqual(__test__.readExtraMatchesFromDialog(null), []);
+
+  const trigger = __test__.normalizeTrigger({ id: "dialog", name: "Dialog", extraMatches: read });
+  assert.deepEqual(trigger.extraMatches.map((match) => [match.type, match.faces, match.value, match.expression]), [
+    ["die-value", 6, 2, null],
+    ["custom-js", null, null, "event.total > 3"]
+  ]);
+});
+
+test("promptTriggerData renders existing extra conditions and saves the edited list", async () => {
+  const originalDialog = globalThis.Dialog;
+  const fieldValues = {
+    'input[name="triggerName"]': "Snake eyes variant",
+    'input[name="triggerPriority"]': "150",
+    'select[name="triggerExecutionMode"]': "automatic",
+    'select[name="triggerMatchType"]': "die-value",
+    'input[name="triggerValue"]': "1",
+    'input[name="triggerMinCount"]': "1",
+    'select[name="triggerCombatState"]': "any"
+  };
+  const element = new HTMLElement();
+  const conditions = [
+    createFakeExtraCondition({ type: "die-value", faces: "", value: "2", minCount: "1" }),
+    createFakeExtraCondition({ type: "total-below", threshold: "4" })
+  ];
+  element.querySelectorAll = (selector) => selector === "[data-srt-extra-match]" ? conditions : [];
+  const dialogHtml = {
+    0: element,
+    find(selector) {
+      return {
+        val: () => fieldValues[selector] ?? "",
+        prop: () => false
+      };
+    }
+  };
+  let renderedContent = "";
+  globalThis.Dialog = {
+    async prompt({ content, callback }) {
+      renderedContent = content;
+      return callback(dialogHtml);
+    }
+  };
+
+  try {
+    const saved = await __test__.promptTriggerData({
+      id: "existing",
+      name: "Existing",
+      match: { type: "die-value", value: 1 },
+      extraMatches: [{ type: "die-value", value: 6 }]
+    });
+
+    assert.match(renderedContent, /data-srt-extra-matches/);
+    assert.match(renderedContent, /data-srt-extra-match-input="value" value="6"/);
+    assert.match(renderedContent, /name="triggerValue" value="1"/);
+    assert.equal(saved.id, "existing");
+    assert.equal(saved.name, "Snake eyes variant");
+    assert.deepEqual(saved.extraMatches.map((match) => [match.type, match.faces, match.value, match.threshold]), [
+      ["die-value", null, 2, null],
+      ["total-below", null, null, 4]
+    ]);
+  } finally {
+    globalThis.Dialog = originalDialog;
+  }
+});
+
+function createFakeButton() {
+  return {
+    handlers: [],
+    addEventListener(_event, handler) {
+      this.handlers.push(handler);
+    }
+  };
+}
+
+function createFakeExtraCondition(values = {}) {
+  const sections = __test__.MATCH_INPUT_FIELDS.map(({ field }) => ({ dataset: { srtExtraMatchField: field }, hidden: false }));
+  const inputs = Object.fromEntries(Object.entries(values).map(([field, value]) => [field, {
+    value,
+    focused: false,
+    handlers: [],
+    addEventListener(_event, handler) {
+      this.handlers.push(handler);
+    },
+    focus() {
+      this.focused = true;
+    }
+  }]));
+  const condition = {
+    list: null,
+    inputs,
+    number: { textContent: "" },
+    removeButton: createFakeButton(),
+    section(field) {
+      return sections.find((entry) => entry.dataset.srtExtraMatchField === field);
+    },
+    querySelector(selector) {
+      const input = selector.match(/^\[data-srt-extra-match-input="(\w+)"\]$/);
+      if (input) return inputs[input[1]] ?? null;
+      if (selector === "[data-srt-extra-match-number]") return this.number;
+      if (selector === "[data-srt-extra-match-remove]") return this.removeButton;
+      return null;
+    },
+    querySelectorAll(selector) {
+      return selector === "[data-srt-extra-match-field]" ? sections : [];
+    },
+    remove() {
+      this.list?.items.splice(this.list.items.indexOf(this), 1);
+    }
+  };
+  return condition;
+}
+
+function createFakeExtraMatchList() {
+  return {
+    items: [],
+    inserted: [],
+    append(condition) {
+      condition.list = this;
+      this.items.push(condition);
+    },
+    querySelectorAll(selector) {
+      return selector === "[data-srt-extra-match]" ? [...this.items] : [];
+    },
+    insertAdjacentHTML(_position, html) {
+      this.inserted.push(html);
+      const type = html.match(/<option value="([^"]+)" selected>/)?.[1] ?? "";
+      this.append(createFakeExtraCondition({ type }));
+    },
+    get lastElementChild() {
+      return this.items.at(-1) ?? null;
+    }
+  };
+}
+
 function createTabButton(tabId) {
   const button = {
     dataset: { srtDialogTab: tabId },

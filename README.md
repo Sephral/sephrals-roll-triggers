@@ -16,12 +16,13 @@ Questions, feedback, and module support are welcome on [Discord](https://discord
 - Tabbed trigger editor with resizable dialog sizing and Signature or Foundry visual themes
 - GM toolbar icon for toggling the Trigger Manager
 - Match rules for natural highs/lows, exact die values, repeated values, thresholds, totals, success degrees, flags, and custom expressions evaluated on the GM processing client
+- AND conditions: add further match conditions to a trigger so it only fires when all of them are true for the same roll, for example one die shows 1 AND another die shows 2
 - Optional filters for roll type, actor type, visibility, combat state, scene, actor, item, and GM/player user context, including multi-value filter editing in the trigger dialog
 - Actions for chat messages, roll tables, macros, journal links, and GM notes
 - Execution modes for automatic runs, GM confirmation, chat buttons, GM whisper logs, or disabled triggers
 - Reusable trigger profiles with separate import/export
 - Built-in starter profiles for several popular Foundry systems, including a generic d100 doubles preset for skill/check rolls
-- English and German UI with a module language setting
+- English and German UI with a module language setting. Follow Foundry uses Foundry's language, including community translations
 - Signature and Foundry manager themes
 - Foundry VTT v13 and v14 support
 
@@ -34,6 +35,7 @@ Questions, feedback, and module support are welcome on [Discord](https://discord
 - Link a journal entry with house rules when a matching roll pattern appears
 - Run a macro after rare dice patterns such as doubles, triples, snake eyes, or maximum values
 - Post an improvement reminder when a d100 skill or check roll lands on doubles such as 11, 22, or 33
+- React to a Savage Worlds roll where one die shows 1 AND the other die shows 2
 
 ## Documentation
 
