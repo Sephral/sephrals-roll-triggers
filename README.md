@@ -4,6 +4,12 @@ Sephral's Roll Triggers adds configurable house-rule reactions for special roll 
 
 It watches existing roll chat messages, checks them against your trigger rules, and then runs optional follow-up actions. It does not change dice results, reroll dice, or replace your game system's normal roll resolution.
 
+## Foundry VTT
+
+[![Foundry VTT package](https://img.shields.io/badge/Foundry%20VTT-Package%20page-fe6a1f?logo=foundryvirtualtabletop&logoColor=white)](https://foundryvtt.com/packages/sephrals-roll-triggers)
+
+Install the module from the package browser in Foundry VTT or open its [package page on foundryvtt.com](https://foundryvtt.com/packages/sephrals-roll-triggers).
+
 ## Discord
 
 [![Join Discord](https://img.shields.io/badge/Discord-Join%20the%20community-5865F2?logo=discord&logoColor=white)](https://discord.gg/7BjCgDYaBP)
