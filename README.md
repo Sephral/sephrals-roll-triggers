@@ -1,54 +1,49 @@
-# Sephral's Roll Triggers
+# Sephral’s Roll Triggers
 
-Sephral's Roll Triggers adds configurable house-rule reactions for special roll results in Foundry VTT.
-
-It watches existing roll chat messages, checks them against your trigger rules, and then runs optional follow-up actions. It does not change dice results, reroll dice, or replace your game system's normal roll resolution.
-
-## Foundry VTT
+**Natural 20? Roll on the crit table. Natural 1? Time for the fumble table. Doubles on a d100? Note an improvement.** Roll Triggers brings your house rules to life: it watches every roll and reacts the way your table wants.
 
 [![Foundry VTT package](https://img.shields.io/badge/Foundry%20VTT-Package%20page-fe6a1f?logo=foundryvirtualtabletop&logoColor=white)](https://foundryvtt.com/packages/sephrals-roll-triggers)
-
-Install the module from the package browser in Foundry VTT or open its [package page on foundryvtt.com](https://foundryvtt.com/packages/sephrals-roll-triggers).
-
-## Discord
-
 [![Join Discord](https://img.shields.io/badge/Discord-Join%20the%20community-5865F2?logo=discord&logoColor=white)](https://discord.gg/7BjCgDYaBP)
-
-Questions, feedback, and module support are welcome on [Discord](https://discord.gg/7BjCgDYaBP).
-
-## More modules
-
 [![More modules by Sephral](https://img.shields.io/badge/GitHub-More%20modules%20by%20Sephral-181717?logo=github&logoColor=white)](https://github.com/Sephral)
 
-More modules by Sephral for Foundry VTT are listed on [github.com/Sephral](https://github.com/Sephral).
+![Roll Triggers demo](media/demo.gif)
 
-## Features
+## Highlights
 
-- Trigger Manager for creating, editing, duplicating, importing, and exporting triggers
-- Tabbed trigger editor with resizable dialog sizing and Signature or Foundry visual themes
-- GM toolbar icon for toggling the Trigger Manager
-- Match rules for natural highs/lows, exact die values, repeated values, thresholds, totals, success degrees, flags, and custom expressions evaluated on the GM processing client
-- AND conditions: add further match conditions to a trigger so it only fires when all of them are true for the same roll, for example one die shows 1 AND another die shows 2
-- Optional filters for roll type, actor type, visibility, combat state, scene, actor, item, and GM/player user context, including multi-value filter editing in the trigger dialog
-- Actions for chat messages, roll tables, macros, journal links, and GM notes
-- Execution modes for automatic runs, GM confirmation, chat buttons, GM whisper logs, or disabled triggers
-- Reusable trigger profiles with separate import/export
-- Built-in starter profiles for several popular Foundry systems, including a generic d100 doubles preset for skill/check rolls
-- English and German UI with a module language setting. Follow Foundry uses Foundry's language, including community translations
-- Signature and Foundry manager themes
-- Foundry VTT v13 and v14 support
+* **React to any special roll:** natural highs and lows, exact values, doubles and triples, totals, thresholds, degrees of success, or combinations such as *one die shows 1 AND the other shows 2*.
+* **Make something happen:** post a chat message, roll on a table, run a macro, link a journal entry or send the GM a private note.
+* **You stay in charge:** fire automatically, ask the GM first, or show a chat button and decide later.
+* **Only when it fits:** limit a trigger to a roll type, an actor, an item, a scene, combat or the player who rolled.
+* **Ready for your system:** starter profiles for D&D 5e, Pathfinder 2e, Call of Cthulhu, Daggerheart, DSA5, WFRP4e, Savage Worlds, Cyberpunk RED, Blades in the Dark, GURPS and more.
+* **Share your house rules:** export triggers and profiles and import them in another world.
+* **Fair dice:** Roll Triggers never changes or rerolls a result. It only reacts.
 
-## Examples
+## Ideas for your table
 
-- Roll a fumble table when a player rolls a natural 1 on an attack
-- Post a critical-hit reminder or draw a critical table on a natural 20
-- Send a private GM note when a hidden or blind roll hits a configured threshold
-- Show a chat button so the GM can decide later whether a special effect should happen
-- Link a journal entry with house rules when a matching roll pattern appears
-- Run a macro after rare dice patterns such as doubles, triples, snake eyes, or maximum values
-- Post an improvement reminder when a d100 skill or check roll lands on doubles such as 11, 22, or 33
-- React to a Savage Worlds roll where one die shows 1 AND the other die shows 2
+* Draw from a critical hit table on a natural 20
+* Post a chat button on a natural 1 so the GM can decide whether the mishap happens
+* Whisper the GM a note when a hidden roll crosses a threshold
+* Run a macro on snake eyes, triples or a maximum roll
+* Link the house rules journal when a special pattern comes up
 
-## Documentation
+## How it works
 
-See [MANUAL.md](MANUAL.md) for setup details, trigger concepts, action templates, profiles, settings, and validation commands.
+1. Click the Roll Triggers icon in the GM toolbar.
+2. Import the starter profile for your system or create your own trigger.
+3. Play. When a roll matches, the trigger fires.
+
+## Install
+
+Search for **Roll Triggers** in Foundry's module browser or open the [package page](https://foundryvtt.com/packages/sephrals-roll-triggers).
+
+Foundry VTT v13 and v14 · any game system · English and German
+
+## Learn more
+
+The [manual](MANUAL.md) explains every match type, filter, action and execution mode, plus profiles, import and export.
+
+Questions or ideas? Join us on [Discord](https://discord.gg/7BjCgDYaBP). Looking for more? See [all modules by Sephral](https://github.com/Sephral).
+
+## License
+
+See [LICENSE.md](LICENSE.md).
