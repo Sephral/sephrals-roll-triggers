@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createRollEvent, getVisibleDiceResults } from "../scripts/roll-event.js";
+import { createRollEvent, getVisibleDiceResults, normalizeSuccessDegree } from "../scripts/roll-event.js";
 
 class DiceTerm {
   constructor(formula, total, faces, results) {
@@ -66,10 +66,11 @@ test("createRollEvent normalizes nested dice terms, visibility, actor, token, an
   globalThis.canvas = null;
   globalThis.foundry = { dice: { terms: { DiceTerm } } };
 
+  // PF2e CheckRoll: degreeOfSuccess is a number (0 critical failure .. 3 critical success).
   const roll = {
     formula: "2d20kh + 7",
     total: 27,
-    options: { degreeOfSuccess: "success", rollType: "check" },
+    options: { degreeOfSuccess: 3, rollType: "check" },
     terms: [
       {
         terms: [new DiceTerm("1d20", 20, 20, [{ result: 20, active: true, discarded: false }])]
@@ -94,7 +95,7 @@ test("createRollEvent normalizes nested dice terms, visibility, actor, token, an
     speaker: { scene: "scene-1", token: "token-1", user: "u1" },
     flags: {
       pf2e: {
-        context: { outcome: "critical-success" },
+        context: { outcome: "criticalSuccess" },
         item: { id: "item-1", name: "Sword" }
       },
       core: {
@@ -309,4 +310,149 @@ test("createRollEvent falls back to current game user without touching deprecate
 
   assert.equal(event.userId, "fallback");
   assert.equal(event.user?.name, "Fallback");
+});
+
+function setupGame(systemId) {
+  globalThis.game = {
+    system: { id: systemId, version: "1.0.0" },
+    combat: { started: false },
+    user: { id: "gm", isGM: true, name: "GM" },
+    users: { get: () => null },
+    settings: { get: () => "publicroll" },
+    scenes: { get: () => null }
+  };
+  globalThis.canvas = null;
+  globalThis.foundry = { dice: { terms: { DiceTerm } } };
+}
+
+function createMessage(flags, roll) {
+  return {
+    id: "m-test",
+    speaker: {},
+    flags,
+    rolls: [roll],
+    getAssociatedActor() {
+      return null;
+    }
+  };
+}
+
+test("normalizeSuccessDegree maps PF2e outcomes and degree numbers to the internal kebab-case form", () => {
+  assert.equal(normalizeSuccessDegree("criticalSuccess"), "critical-success");
+  assert.equal(normalizeSuccessDegree("criticalFailure"), "critical-failure");
+  assert.equal(normalizeSuccessDegree("success"), "success");
+  assert.equal(normalizeSuccessDegree("critical-success"), "critical-success");
+  assert.equal(normalizeSuccessDegree("Critical Success"), "critical-success");
+  assert.equal(normalizeSuccessDegree(3), "critical-success");
+  assert.equal(normalizeSuccessDegree(2), "success");
+  assert.equal(normalizeSuccessDegree(1), "failure");
+  assert.equal(normalizeSuccessDegree(0), "critical-failure");
+  assert.equal(normalizeSuccessDegree("3"), "critical-success");
+  assert.equal(normalizeSuccessDegree(7), "7");
+  assert.equal(normalizeSuccessDegree(null), null);
+  assert.equal(normalizeSuccessDegree(""), null);
+});
+
+test("createRollEvent reads the PF2e degree number when the message has no outcome flag", () => {
+  setupGame("pf2e");
+  const roll = {
+    formula: "1d20 + 4",
+    total: 5,
+    options: { degreeOfSuccess: 0 },
+    terms: [new DiceTerm("1d20", 1, 20, [{ result: 1, active: true, discarded: false }])]
+  };
+
+  const event = createRollEvent(createMessage({ pf2e: { context: { outcome: null } } }, roll), roll, 0, "generic");
+
+  assert.equal(event.successDegree, "critical-failure");
+});
+
+test("createRollEvent reads the dnd5e roll type from the message flag", () => {
+  setupGame("dnd5e");
+  const attack = {
+    formula: "1d20 + 5",
+    total: 25,
+    options: {},
+    terms: [new DiceTerm("1d20", 20, 20, [{ result: 20, active: true, discarded: false }])]
+  };
+  // A dnd5e DamageRoll keeps the damage type in options.type. The message flag must win over it.
+  const damage = {
+    formula: "1d8 + 3",
+    total: 9,
+    options: { type: "fire" },
+    terms: [new DiceTerm("1d8", 6, 8, [{ result: 6, active: true, discarded: false }])]
+  };
+
+  assert.equal(createRollEvent(createMessage({ dnd5e: { roll: { type: "attack" } } }, attack), attack, 0, "generic").rollType, "attack");
+  assert.equal(createRollEvent(createMessage({ dnd5e: { roll: { type: "damage" } } }, damage), damage, 0, "generic").rollType, "damage");
+
+  // roll.options.rollType (dnd5e copies the flag there) still comes first, other systems keep options.type.
+  const copied = { ...attack, options: { rollType: "save" } };
+  assert.equal(createRollEvent(createMessage({ dnd5e: { roll: { type: "attack" } } }, copied), copied, 0, "generic").rollType, "save");
+  assert.equal(createRollEvent(createMessage({}, damage), damage, 0, "generic").rollType, "fire");
+});
+
+test("createRollEvent maps dnd5e roll types to the module's roll type filter values", () => {
+  const roll = () => ({
+    formula: "1d20",
+    total: 12,
+    options: {},
+    terms: [new DiceTerm("1d20", 12, 20, [{ result: 12, active: true, discarded: false }])]
+  });
+  const rollTypeFor = (type, systemId = "dnd5e") => {
+    setupGame(systemId);
+    const current = roll();
+    return createRollEvent(createMessage({ dnd5e: { roll: { type } } }, current), current, 0, "generic").rollType;
+  };
+
+  const expected = {
+    ability: "check",
+    tool: "check",
+    skill: "skill",
+    save: "save",
+    death: "save",
+    attack: "attack",
+    damage: "damage",
+    healing: "healing",
+    hitDie: "healing",
+    hitPoints: "utility",
+    generic: "utility"
+  };
+  for (const [type, filterValue] of Object.entries(expected)) assert.equal(rollTypeFor(type), filterValue, type);
+
+  // The copy in roll.options.rollType is mapped the same way.
+  setupGame("dnd5e");
+  const copied = { ...roll(), options: { rollType: "ability" } };
+  assert.equal(createRollEvent(createMessage({}, copied), copied, 0, "generic").rollType, "check");
+
+  // Other systems keep their own roll type values.
+  assert.equal(rollTypeFor("ability", "pf2e"), "ability");
+});
+
+test("createRollEvent reads core initiative rolls as initiative", () => {
+  setupGame("dnd5e");
+  const roll = {
+    formula: "1d20 + 2",
+    total: 15,
+    options: {},
+    terms: [new DiceTerm("1d20", 13, 20, [{ result: 13, active: true, discarded: false }])]
+  };
+
+  assert.equal(createRollEvent(createMessage({ core: { initiativeRoll: true } }, roll), roll, 0, "generic").rollType, "initiative");
+  assert.equal(createRollEvent(createMessage({ "core.initiativeRoll": true }, roll), roll, 0, "generic").rollType, "initiative");
+  assert.equal(createRollEvent(createMessage({}, roll), roll, 0, "generic").rollType, "any");
+});
+
+test("createRollEvent prefers the speaker scene over the scene the GM is viewing", () => {
+  setupGame("dnd5e");
+  globalThis.canvas = { scene: { id: "viewed-scene" } };
+  const roll = {
+    formula: "1d20",
+    total: 11,
+    terms: [new DiceTerm("1d20", 11, 20, [{ result: 11, active: true, discarded: false }])]
+  };
+  const message = { ...createMessage({}, roll), speaker: { scene: "speaker-scene" } };
+
+  assert.equal(createRollEvent(message, roll, 0, "generic").sceneId, "speaker-scene");
+  assert.equal(createRollEvent({ ...message, speaker: {} }, roll, 0, "generic").sceneId, "viewed-scene");
 });

@@ -1,9 +1,27 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+const users = new Map([
+  ["player-1", { id: "player-1", isGM: false, active: true }],
+  ["player-2", { id: "player-2", isGM: false, active: true }],
+  ["gm-1", { id: "gm-1", isGM: true, active: true }],
+  ["gm-2", { id: "gm-2", isGM: true, active: true }]
+]);
+
 globalThis.game = {
   user: { id: "player-1", isGM: false },
-  users: [{ id: "player-1", isGM: false, active: true }, { id: "gm-1", isGM: true, active: true }],
+  // gm-1 is the designated active GM, gm-2 an additional (assistant) GM.
+  users: {
+    activeGM: users.get("gm-1"),
+    get(id) {
+      return users.get(id) ?? null;
+    }
+  },
+  i18n: {
+    localize(key) {
+      return key;
+    }
+  },
   messages: {
     get(id) {
       return this._messages.get(id) ?? null;
@@ -23,7 +41,7 @@ globalThis.ChatMessage = {
   }
 };
 
-const { RollTriggerService } = await import("../scripts/roll-trigger-service.js");
+const { isActiveGmClient, RollTriggerService } = await import("../scripts/roll-trigger-service.js");
 
 function createService() {
   return new RollTriggerService({
@@ -90,9 +108,19 @@ test("non-GM deferred execution creates a GM relay chat request", async () => {
   }]);
 });
 
+function createRelay(authorId, request = { messageId: "message-2", triggerId: "trigger-2", userId: authorId }) {
+  return {
+    _source: { author: authorId },
+    getFlag(scope, key) {
+      if (scope !== "sephrals-roll-triggers" || key !== "deferredRequest") return null;
+      return request;
+    }
+  };
+}
+
 test("GM deferred request handler resolves the source message and executes the relay", async () => {
   const service = createService();
-  const message = { id: "message-2" };
+  const message = { id: "message-2", _source: { author: "player-1" } };
   game.messages._messages.set("message-2", message);
   game.user = { id: "gm-1", isGM: true };
 
@@ -101,14 +129,7 @@ test("GM deferred request handler resolves the source message and executes the r
     received = { resolvedMessage, triggerId, context };
   };
 
-  const relay = {
-    getFlag(scope, key) {
-      if (scope !== "sephrals-roll-triggers" || key !== "deferredRequest") return null;
-      return { messageId: "message-2", triggerId: "trigger-2", userId: "player-1" };
-    }
-  };
-
-  const handled = await service.handleDeferredRequestMessage(relay);
+  const handled = await service.handleDeferredRequestMessage(createRelay("player-1"));
 
   assert.equal(handled, true);
   assert.deepEqual(received, {
@@ -116,6 +137,72 @@ test("GM deferred request handler resolves the source message and executes the r
     triggerId: "trigger-2",
     context: { requestRelay: true }
   });
+});
+
+test("deferred relay requests are handled only by the active GM", async () => {
+  const service = createService();
+  game.messages._messages.set("message-2", { id: "message-2", _source: { author: "player-1" } });
+  game.user = { id: "gm-2", isGM: true };
+
+  let executed = false;
+  service.executeDeferredTrigger = async () => {
+    executed = true;
+  };
+
+  assert.equal(await service.handleDeferredRequestMessage(createRelay("player-1")), true);
+  assert.equal(executed, false);
+});
+
+test("deferred relay requests from players without rights on the roll are rejected", async () => {
+  const service = createService();
+  game.messages._messages.set("message-2", { id: "message-2", _source: { author: "player-1" }, speaker: {} });
+  game.user = { id: "gm-1", isGM: true };
+
+  let executed = 0;
+  service.executeDeferredTrigger = async () => {
+    executed += 1;
+  };
+
+  // player-2 neither rolled the message nor owns its speaker actor. The self-declared userId does not count.
+  await service.handleDeferredRequestMessage(createRelay("player-2", { messageId: "message-2", triggerId: "trigger-2", userId: "player-1" }));
+  assert.equal(executed, 0);
+
+  // With player buttons disabled, even the roller cannot run the trigger through a relay.
+  service.settings.allowPlayerButtons = false;
+  await service.handleDeferredRequestMessage(createRelay("player-1"));
+  assert.equal(executed, 0);
+
+  service.settings.allowPlayerButtons = true;
+  await service.handleDeferredRequestMessage(createRelay("player-1"));
+  assert.equal(executed, 1);
+});
+
+test("players get a warning instead of a relay request when no GM is online", async () => {
+  ChatMessage.created.length = 0;
+  const warnings = [];
+  globalThis.ui = { notifications: { warn: (text) => warnings.push(text) } };
+  const activeGM = game.users.activeGM;
+  game.users.activeGM = null;
+  game.user = { id: "player-1", isGM: false };
+
+  const service = createService();
+  const result = await service.requestDeferredTriggerExecution({ id: "message-1" }, "trigger-1");
+
+  assert.deepEqual(result, { skipped: true, reason: "no-active-gm" });
+  assert.equal(ChatMessage.created.length, 0);
+  assert.deepEqual(warnings, ["SRT.Notification.NoActiveGm"]);
+
+  game.users.activeGM = activeGM;
+  delete globalThis.ui;
+});
+
+test("isActiveGmClient is true only on the designated active GM", () => {
+  game.user = { id: "gm-1", isGM: true };
+  assert.equal(isActiveGmClient(), true);
+  game.user = { id: "gm-2", isGM: true };
+  assert.equal(isActiveGmClient(), false);
+  game.user = { id: "player-1", isGM: false };
+  assert.equal(isActiveGmClient(), false);
 });
 
 test("renderChatMessage hides internal deferred relay messages", () => {
@@ -213,4 +300,146 @@ test("processChatMessage evaluates custom-js triggers for player-authored rolls 
   assert.equal(ChatMessage.created.length, 1);
   assert.equal(ChatMessage.created[0].content, "Investigator can mark 22 for improvement");
   assert.equal(message._processed, true);
+});
+
+function createRollMessage(id) {
+  return {
+    id,
+    uuid: `ChatMessage.${id}`,
+    flags: {},
+    getFlag(scope, key) {
+      return this.flags[scope]?.[key] ?? null;
+    },
+    async setFlag(scope, key, value) {
+      this.flags[scope] ??= {};
+      this.flags[scope][key] = value;
+      return value;
+    }
+  };
+}
+
+function createRollEventStub(rollIndex, value) {
+  return {
+    rollIndex,
+    rollType: "damage",
+    total: value,
+    formula: "1d6",
+    diceResults: [{ faces: 6, value }],
+    userId: "player-1",
+    user: { id: "player-1", isGM: false, name: "Player One" },
+    actorName: "Hero",
+    visibility: "public",
+    flags: {}
+  };
+}
+
+function createProcessingService({ events, triggers, maxActionsPerMessage = 10 }) {
+  return new RollTriggerService({
+    adapter: {
+      supportsMessage() {
+        return true;
+      },
+      extractRollEvents() {
+        return events;
+      }
+    },
+    settings: {
+      enabled: true,
+      debug: false,
+      storeTriggeredInChat: true,
+      moduleId: "sephrals-roll-triggers",
+      defaultExecutionMode: "automatic",
+      respectPrivateRolls: true,
+      maxActionsPerMessage,
+      getTriggers() {
+        return triggers;
+      }
+    }
+  });
+}
+
+function createSixTrigger(overrides = {}) {
+  return {
+    id: "six",
+    enabled: true,
+    executionMode: "automatic",
+    filters: {},
+    match: { type: "die-max", faces: 6, minCount: 1 },
+    actions: [{ type: "chat-message", template: "Six on roll {{roll.total}}" }],
+    ...overrides
+  };
+}
+
+test("processChatMessage runs only on the active GM client", async () => {
+  ChatMessage.created.length = 0;
+  const events = [createRollEventStub(0, 6)];
+
+  game.user = { id: "gm-2", isGM: true };
+  const message = createRollMessage("message-assistant");
+  await createProcessingService({ events, triggers: [createSixTrigger()] }).processChatMessage(message);
+  assert.equal(ChatMessage.created.length, 0);
+  assert.equal(message.flags["sephrals-roll-triggers"], undefined);
+
+  game.user = { id: "gm-1", isGM: true };
+  await createProcessingService({ events, triggers: [createSixTrigger()] }).processChatMessage(createRollMessage("message-active"));
+  assert.equal(ChatMessage.created.length, 1);
+});
+
+test("processChatMessage ignores roll table cards posted by a trigger", async () => {
+  game.user = { id: "gm-1", isGM: true };
+  ChatMessage.created.length = 0;
+  const message = createRollMessage("message-table-card");
+  message.flags["sephrals-roll-triggers"] = { triggerOutput: { triggerId: "six" } };
+
+  await createProcessingService({ events: [createRollEventStub(0, 6)], triggers: [createSixTrigger()] }).processChatMessage(message);
+
+  assert.equal(ChatMessage.created.length, 0);
+  assert.equal(message.flags["sephrals-roll-triggers"].processed, undefined);
+});
+
+test("processChatMessage runs a trigger once per message unless it allows multiple matches", async () => {
+  game.user = { id: "gm-1", isGM: true };
+  const events = [createRollEventStub(0, 6), createRollEventStub(1, 6)];
+
+  ChatMessage.created.length = 0;
+  await createProcessingService({ events, triggers: [createSixTrigger()] }).processChatMessage(createRollMessage("message-once"));
+  assert.deepEqual(ChatMessage.created.map((data) => data.content), ["Six on roll 6"]);
+
+  ChatMessage.created.length = 0;
+  await createProcessingService({ events, triggers: [createSixTrigger({ allowMultipleMatches: true })] }).processChatMessage(createRollMessage("message-multi"));
+  assert.equal(ChatMessage.created.length, 2);
+
+  ChatMessage.created.length = 0;
+  await createProcessingService({ events, triggers: [createSixTrigger({ oncePerMessage: false })] }).processChatMessage(createRollMessage("message-each"));
+  assert.equal(ChatMessage.created.length, 2);
+});
+
+test("processChatMessage stores one chat button per trigger and message", async () => {
+  game.user = { id: "gm-1", isGM: true };
+  const message = createRollMessage("message-buttons");
+  const events = [createRollEventStub(0, 6), createRollEventStub(1, 6)];
+
+  await createProcessingService({ events, triggers: [createSixTrigger({ executionMode: "chat-button" })] }).processChatMessage(message);
+
+  const stored = message.flags["sephrals-roll-triggers"].deferredMatches;
+  assert.equal(stored.length, 1);
+  assert.equal(stored[0].triggerId, "six");
+  assert.equal(stored[0].rollIndex, 0);
+});
+
+test("processChatMessage never runs more actions than the per-message limit", async () => {
+  game.user = { id: "gm-1", isGM: true };
+  ChatMessage.created.length = 0;
+  const twoActions = [{ type: "chat-message", template: "B1" }, { type: "chat-message", template: "B2" }];
+  const triggers = [
+    createSixTrigger({ id: "a", priority: 300, actions: [{ type: "chat-message", template: "A" }], allowMultipleMatches: true }),
+    createSixTrigger({ id: "b", priority: 200, actions: twoActions, allowMultipleMatches: true }),
+    createSixTrigger({ id: "c", priority: 100, actions: [{ type: "chat-message", template: "C" }], allowMultipleMatches: true })
+  ];
+  const events = [createRollEventStub(0, 6), createRollEventStub(1, 6)];
+
+  await createProcessingService({ events, triggers, maxActionsPerMessage: 2 }).processChatMessage(createRollMessage("message-limit"));
+
+  // "b" would need two more actions after "a" and is skipped. "c" fills the limit, the second roll adds nothing.
+  assert.deepEqual(ChatMessage.created.map((data) => data.content), ["A", "C"]);
 });

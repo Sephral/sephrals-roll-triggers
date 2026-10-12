@@ -97,9 +97,53 @@ function getAssociatedItem(message) {
   return flags?.dnd5e?.item ?? flags?.pf2e?.item ?? flags?.swade?.item ?? null;
 }
 
+const SUCCESS_DEGREES_BY_INDEX = ["critical-failure", "failure", "success", "critical-success"];
+
+// The module compares success degrees in kebab-case ("critical-success"). PF2e stores the outcome camelCase in
+// flags.pf2e.context.outcome ("criticalSuccess") and as a number in roll.options.degreeOfSuccess
+// (0 critical failure .. 3 critical success). Both forms map to the internal one.
+export function normalizeSuccessDegree(value) {
+  if (value == null) return null;
+
+  const text = String(value).trim();
+  if (!text) return null;
+  if (/^\d+$/.test(text)) return SUCCESS_DEGREES_BY_INDEX[Number(text)] ?? text;
+
+  return text
+    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+    .replace(/[\s_]+/g, "-")
+    .toLowerCase();
+}
+
 function inferSuccessDegree(message, roll) {
   const flags = message?.flags ?? {};
   return flags?.pf2e?.context?.outcome ?? roll?.options?.degreeOfSuccess ?? null;
+}
+
+// dnd5e 5.3.3 roll types without an own filter value, mapped to the closest one. attack, save, skill, damage
+// and healing exist as filter values (concentration saves arrive as "save").
+const DND5E_ROLL_TYPES = {
+  ability: "check",
+  tool: "check",
+  death: "save",
+  hitDie: "healing",
+  hitPoints: "utility",
+  generic: "utility"
+};
+
+function isInitiativeMessage(message) {
+  const flags = message?.flags ?? {};
+  return Boolean(flags.core?.initiativeRoll ?? flags["core.initiativeRoll"]);
+}
+
+// dnd5e 5.x keeps the roll type on the message (flags.dnd5e.roll.type) and copies it into roll.options.rollType
+// only for rolls built through its own workflow. The flag goes before roll.options.type, which is the damage type
+// ("fire") on a dnd5e DamageRoll. Core initiative rolls carry no type, only the core.initiativeRoll flag.
+function inferRollType(message, roll, systemId) {
+  const rollType = roll?.options?.rollType ?? message?.flags?.dnd5e?.roll?.type ?? null;
+  if (rollType != null) return systemId === "dnd5e" ? DND5E_ROLL_TYPES[rollType] ?? rollType : rollType;
+  if (isInitiativeMessage(message)) return "initiative";
+  return roll?.options?.type ?? "any";
 }
 
 function getMessageUserData(message) {
@@ -131,8 +175,8 @@ export function createRollEvent(message, roll, rollIndex, adapterId, extra = {})
     messageId: message?.id ?? null,
     messageUuid: message?.uuid ?? null,
     rollIndex,
-    rollType: extra.rollType ?? roll?.options?.rollType ?? roll?.options?.type ?? "any",
-    successDegree: extra.successDegree ?? inferSuccessDegree(message, roll),
+    rollType: extra.rollType ?? inferRollType(message, roll, systemId),
+    successDegree: normalizeSuccessDegree(extra.successDegree ?? inferSuccessDegree(message, roll)),
     actor,
     actorId: actor?.id ?? null,
     actorName: actor?.name ?? null,
@@ -147,7 +191,8 @@ export function createRollEvent(message, roll, rollIndex, adapterId, extra = {})
     visibility: normalizeVisibility(message),
     rollMode: getRollMode(message),
     isCombat: Boolean(game.combat?.started),
-    sceneId: globalThis.canvas?.scene?.id ?? message?.speaker?.scene ?? null,
+    // The speaker's scene is where the roll happened. The scene the GM is viewing is only a fallback.
+    sceneId: message?.speaker?.scene ?? globalThis.canvas?.scene?.id ?? null,
     formula: String(roll?.formula ?? "").trim(),
     total: Number.isFinite(Number(roll?.total)) ? Number(roll.total) : null,
     diceTerms,

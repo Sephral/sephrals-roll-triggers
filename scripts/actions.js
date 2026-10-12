@@ -1,11 +1,25 @@
 import { localize, MODULE_ID } from "./settings.js";
 
-function renderTemplateString(template, context) {
+const HTML_ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#x27;" };
+
+// Marks chat messages that a trigger action posted itself (roll table cards contain a roll).
+export const TRIGGER_OUTPUT_FLAG = "triggerOutput";
+
+// foundry.utils.escapeHTML exists in v13 and v14. The fallback uses the same table for unit tests.
+export function escapeHtml(value) {
+  const text = String(value ?? "");
+  const escape = globalThis.foundry?.utils?.escapeHTML;
+  if (typeof escape === "function") return escape(text);
+  return text.replace(/[&<>"']/g, (character) => HTML_ESCAPES[character]);
+}
+
+// The template itself is GM-authored HTML. Only the substituted values (actor, user, trigger names...) are escaped.
+export function renderTemplateString(template, context) {
   return String(template ?? "").replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_match, token) => {
     const parts = token.split(".");
     let current = context;
     for (const part of parts) current = current?.[part];
-    return current == null ? "" : String(current);
+    return current == null ? "" : escapeHtml(current);
   });
 }
 
@@ -140,7 +154,7 @@ function buildWhisperRecipients(mode, event, action) {
 }
 
 async function executeChatAction(event, trigger, action) {
-  const content = renderTemplateString(action.template ?? action.message ?? "", buildTemplateContext(event, trigger));
+  const content = renderTemplateString(action.template || action.message || "", buildTemplateContext(event, trigger));
   if (!content.trim()) return null;
 
   return ChatMessage.create({
@@ -150,7 +164,7 @@ async function executeChatAction(event, trigger, action) {
 }
 
 async function executeRollTableAction(event, trigger, action) {
-  const tableRefs = Array.isArray(action.tables) ? action.tables : action.table ? [action.table] : [];
+  const tableRefs = Array.isArray(action.tables) && action.tables.length ? action.tables : action.table ? [action.table] : [];
   const tableCollection = game.tables ?? game.rollTables;
   const results = [];
 
@@ -167,16 +181,38 @@ async function executeRollTableAction(event, trigger, action) {
     const draw = await table.draw({ displayChat: false });
     results.push({ table, draw });
 
-    if (action.postResult !== false) {
-      const content = `<div class="srt-roll-table-result"><strong>${trigger.name}</strong><div>${table.name}</div></div>`;
-      await ChatMessage.create({
-        content,
-        whisper: buildWhisperRecipients(action.visibility ?? "gm", event, action)
+    // Post Foundry's own result card (drawn text, image and roll) with the action's whisper recipients.
+    // The card carries the table roll, so it is flagged as trigger output and not matched again.
+    if (action.postResult !== false && draw?.results?.length) {
+      const whisper = buildWhisperRecipients(action.visibility ?? "gm", event, action);
+      await table.toMessage(draw.results, {
+        roll: draw.roll,
+        messageData: {
+          whisper,
+          flavor: buildRollTableFlavor(trigger, table, draw.results.length),
+          flags: { [MODULE_ID]: { [TRIGGER_OUTPUT_FLAG]: { triggerId: trigger?.id ?? null } } }
+        },
+        messageOptions: getTableMessageOptions(whisper)
       });
     }
   }
 
   return results;
+}
+
+function buildRollTableFlavor(trigger, table, resultCount) {
+  const tableName = escapeHtml(table.name);
+  const drawFlavor = game.i18n?.format?.(`TABLE.DrawFlavor${resultCount > 1 ? "Plural" : ""}`, { number: resultCount, name: tableName }) ?? tableName;
+  return `${escapeHtml(localize("Chat.TriggerReference"))} <strong>${escapeHtml(trigger?.name ?? "")}</strong>: ${drawFlavor}`;
+}
+
+// RollTable#toMessage applies the creating client's current roll mode unless one is given, and a public mode
+// clears the whisper list. v14 reads messageMode (rollMode logs a deprecation there), v13 reads rollMode.
+// The private modes keep a non-empty whisper list, so "player" and "custom" recipients survive.
+function getTableMessageOptions(whisper) {
+  const isPrivate = whisper.length > 0;
+  if (globalThis.CONFIG?.ChatMessage?.modes) return { messageMode: isPrivate ? "gm" : "public" };
+  return { rollMode: isPrivate ? "gmroll" : "publicroll" };
 }
 
 async function executeMacroAction(event, trigger, action) {
@@ -195,8 +231,9 @@ async function executeJournalLinkAction(event, trigger, action) {
   const document = await resolveDocumentReference(action.journal, [game.journal ?? game.journalEntries]);
   if (!document) return null;
 
+  // The trigger editor saves an empty template when the field is left blank, which also means the default card.
   const content = renderTemplateString(
-    action.template ?? `<div><strong>{{trigger.name}}</strong></div><div>@UUID[${document.uuid}]{${document.name}}</div>`,
+    String(action.template ?? "").trim() || `<div><strong>{{trigger.name}}</strong></div><div>@UUID[${document.uuid}]{${escapeHtml(document.name)}}</div>`,
     buildTemplateContext(event, trigger, {
       action: cloneJsonSafe(action),
       journal: {
@@ -215,7 +252,7 @@ async function executeJournalLinkAction(event, trigger, action) {
 }
 
 async function executeGmNoteAction(event, trigger, action) {
-  const content = renderTemplateString(action.template ?? action.message ?? "", buildTemplateContext(event, trigger));
+  const content = renderTemplateString(action.template || action.message || "", buildTemplateContext(event, trigger));
   if (!content.trim()) return null;
 
   return ChatMessage.create({
@@ -239,12 +276,12 @@ export async function confirmExecution(match) {
   if (!game.user?.isGM) return false;
   if (typeof Dialog?.confirm !== "function") return true;
 
-  const actionList = summarizeActions(match.actions).map((entry) => `<li>${entry}</li>`).join("");
+  const actionList = summarizeActions(match.actions).map((entry) => `<li>${escapeHtml(entry)}</li>`).join("");
   const content = `
     <div>
-      <p><strong>${localize("Dialog.Trigger")}</strong>: ${match.trigger.name}</p>
-      <p><strong>${localize("Dialog.Actor")}</strong>: ${match.event.actorName ?? "-"}</p>
-      <p><strong>${localize("Dialog.Roll")}</strong>: ${match.event.formula} = ${match.event.total ?? "-"}</p>
+      <p><strong>${localize("Dialog.Trigger")}</strong>: ${escapeHtml(match.trigger.name)}</p>
+      <p><strong>${localize("Dialog.Actor")}</strong>: ${escapeHtml(match.event.actorName ?? "-")}</p>
+      <p><strong>${localize("Dialog.Roll")}</strong>: ${escapeHtml(match.event.formula)} = ${escapeHtml(match.event.total ?? "-")}</p>
       <p><strong>${localize("Dialog.Actions")}</strong></p>
       <ul>${actionList}</ul>
     </div>
@@ -259,6 +296,26 @@ export async function confirmExecution(match) {
   });
 }
 
+// visibilityMode "inherit" (the trigger default) keeps follow-up output of private, self and blind rolls private
+// while "Respect private rolls" is on. Any other mode, for example "action", uses the action's own visibility.
+export function resolveActionVisibility(visibility, match, options = {}) {
+  if (!options.respectPrivateRolls) return visibility;
+  if ((match?.trigger?.visibilityMode ?? "inherit") !== "inherit") return visibility;
+
+  const rollVisibility = match?.event?.visibility ?? "public";
+  if (rollVisibility === "public") return visibility;
+  if (visibility === "public") return "gm";
+  // Players must not learn the outcome of a blind roll, not even by whisper.
+  if (rollVisibility === "blind") return "gm";
+  return visibility;
+}
+
+function applyActionVisibility(action, match, options) {
+  const visibility = action.visibility ?? (action.type === "roll-table" ? "gm" : "public");
+  const resolved = resolveActionVisibility(visibility, match, options);
+  return resolved === action.visibility ? action : { ...action, visibility: resolved };
+}
+
 export async function executeMatch(match, options = {}) {
   const mode = options.forceExecutionMode ?? match.executionMode;
   if (mode === "disabled") return { skipped: true, reason: "disabled" };
@@ -269,14 +326,15 @@ export async function executeMatch(match, options = {}) {
   if (mode === "gm-whisper-log") {
     await ChatMessage.create({
       whisper: ChatMessage.getWhisperRecipients("GM").map((user) => user.id),
-      content: `<div><strong>${match.trigger.name}</strong>: ${match.event.formula} = ${match.event.total ?? "-"}</div>`
+      content: `<div><strong>${escapeHtml(match.trigger.name)}</strong>: ${escapeHtml(match.event.formula)} = ${escapeHtml(match.event.total ?? "-")}</div>`
     });
     return { skipped: false, mode };
   }
   if (mode === "chat-button" && options.allowDeferred !== false) return { deferred: true, mode };
 
   const results = [];
-  for (const action of match.actions ?? []) {
+  for (const configuredAction of match.actions ?? []) {
+    const action = applyActionVisibility(configuredAction, match, options);
     if (action.type === "chat-message") {
       results.push(await executeChatAction(match.event, match.trigger, action));
       continue;

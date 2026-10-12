@@ -779,7 +779,7 @@ function normalizeAction(action) {
   if (!action || action.type === "none") return null;
 
   if (action.type === "chat-message") {
-    const template = String(action.template ?? action.message ?? "").trim();
+    const template = String(action.template || action.message || "").trim();
     if (!template) return null;
 
     return {
@@ -790,7 +790,8 @@ function normalizeAction(action) {
   }
 
   if (action.type === "roll-table") {
-    const tables = normalizeCommaList(Array.isArray(action.tables) ? action.tables.join(",") : action.tables ?? action.table ?? "");
+    const listed = normalizeCommaList(Array.isArray(action.tables) ? action.tables.join(",") : action.tables ?? "");
+    const tables = listed.length ? listed : normalizeCommaList(action.table ?? "");
     if (!tables.length) return null;
 
     return {
@@ -823,7 +824,7 @@ function normalizeAction(action) {
   }
 
   if (action.type === "gm-note") {
-    const template = String(action.template ?? action.message ?? "").trim();
+    const template = String(action.template || action.message || "").trim();
     if (!template) return null;
 
     return {

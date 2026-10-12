@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  allowsRepeatedMatches,
   collectMatches,
   evaluateMatchCondition,
   evaluateTriggerConditions,
@@ -229,4 +230,26 @@ test("custom js extra conditions keep the GM only evaluation rule", () => {
 
   globalThis.game = { user: { isGM: false } };
   assert.equal(matchTrigger(trigger, createEvent()), null);
+});
+
+test("success-degree matches compare normalized PF2e and internal forms", () => {
+  const critical = createEvent({ successDegree: "critical-success" });
+
+  assert.equal(evaluateMatchCondition({ type: "success-degree", degree: "critical-success" }, critical), true);
+  assert.equal(evaluateMatchCondition({ type: "success-degree", degree: "criticalSuccess" }, critical), true);
+  assert.equal(evaluateMatchCondition({ type: "success-degree", degree: "3" }, critical), true);
+  assert.equal(evaluateMatchCondition({ type: "success-degree", degree: "critical-failure" }, critical), false);
+  assert.equal(evaluateMatchCondition({ type: "success-degree", degree: "critical-failure" }, createEvent({ successDegree: 0 })), true);
+
+  // An empty degree never matches, also not rolls without a success degree.
+  assert.equal(evaluateMatchCondition({ type: "success-degree", degree: null }, createEvent({ successDegree: null })), false);
+  assert.equal(evaluateMatchCondition({ type: "success-degree", degree: "" }, createEvent()), false);
+});
+
+test("allowsRepeatedMatches opts into a run per roll with either stored option", () => {
+  assert.equal(allowsRepeatedMatches({}), false);
+  assert.equal(allowsRepeatedMatches({ oncePerMessage: true, allowMultipleMatches: false }), false);
+  assert.equal(allowsRepeatedMatches({ oncePerMessage: false }), true);
+  assert.equal(allowsRepeatedMatches({ allowMultipleMatches: true }), true);
+  assert.equal(allowsRepeatedMatches(null), false);
 });

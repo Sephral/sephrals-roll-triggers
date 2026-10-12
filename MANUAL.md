@@ -30,12 +30,12 @@ Important settings:
 - Module language: follow Foundry, force German, or force English for module UI text. Follow Foundry uses Foundry's language, including community translations of this module
 - Manager theme: Signature or Foundry visual theme
 - Default execution mode: default behavior for newly created triggers
-- Allow player buttons: lets players see and request chat-button trigger execution
+- Allow player buttons: lets players see and request chat-button trigger execution on their own rolls and on rolls of actors they own (never on blind rolls)
 - Enable import and export: controls JSON import/export buttons
 - Show internal presets: shows built-in starter profiles
 - Store triggered matches on chat messages: prevents duplicate processing on re-render
-- Respect private rolls: keeps follow-up handling private for private or blind rolls
-- Maximum actions per chat message: limits how many actions can run from one message
+- Respect private rolls: keeps follow-up handling private for private or blind rolls. Public actions of a private, self, or blind roll are whispered to the GM instead, and actions of a blind roll never go to players
+- Maximum actions per chat message: limits how many actions can run from one message. A trigger whose actions would exceed the limit is skipped
 
 ## Trigger Basics
 
@@ -47,6 +47,10 @@ A trigger has four main parts:
 - Actions: what happens when the trigger matches
 
 Higher priority triggers are evaluated first. If several triggers match the same roll, they can all run unless a trigger is configured to stop lower-priority matches.
+
+A trigger runs at most once per chat message, even when the message holds several rolls, for example a damage card with several damage parts. The first matching roll counts. A trigger export can opt out with `"oncePerMessage": false` or `"allowMultipleMatches": true`, then the trigger runs for every matching roll of the message.
+
+With `Respect private rolls` enabled, a trigger follows the privacy of the roll (`"visibilityMode": "inherit"`, the default). Set `"visibilityMode": "action"` in a trigger export to always use the visibility configured on its actions.
 
 ## Match Types
 
@@ -62,7 +66,7 @@ Generic match types include:
 - At least N dice of one type show the same value
 - A die result is above or below a threshold
 - The total is above or below a threshold
-- A system success degree matches
+- A system success degree matches: `critical-success`, `success`, `failure`, or `critical-failure`. PF2e outcomes (`criticalSuccess` or degree 0 to 3) are recognized
 - A system flag exists
 - A custom JavaScript expression evaluated on the GM client returns true
 
@@ -93,6 +97,8 @@ Available filter groups:
 
 The scene, actor, and item selectors show `Name (ID)` where Foundry provides names.
 
+In D&D 5e, ability and tool checks count as `check`, death saves as `save`, hit dice as `healing`, and hit point and utility formula rolls as `utility`. Initiative rolls from the combat tracker count as `initiative` in every system.
+
 ## Actions
 
 Each trigger can hold multiple action slots. Empty actions are ignored.
@@ -100,9 +106,9 @@ Each trigger can hold multiple action slots. Empty actions are ignored.
 Supported action types:
 
 - Chat message: posts a templated chat message
-- Roll table: draws a selected roll table and can post the result summary
+- Roll table: draws a selected roll table and posts Foundry's result card with the drawn result, using the action visibility
 - Macro: executes a selected macro
-- Journal link: posts a chat link to a selected journal entry
+- Journal link: posts a chat link to a selected journal entry. With an empty template it posts the trigger name and the link, a written template replaces both (`{{journal.name}}` and `{{journal.uuid}}` are available)
 - GM note: sends a note to GMs
 
 Action visibility can be configured where relevant:
@@ -121,6 +127,8 @@ Templates can use simple tokens such as:
 - `{{roll.type}}`
 - `{{roll.results}}`
 
+The template itself may contain HTML. Token values such as actor or user names are inserted as plain text.
+
 ## Execution Modes
 
 Triggers can execute in several ways:
@@ -131,7 +139,7 @@ Triggers can execute in several ways:
 - GM whisper log: logs the match privately to GMs
 - Disabled: never runs
 
-For player-visible chat buttons, non-GM clicks are relayed to active GMs for execution.
+For player-visible chat buttons, non-GM clicks are relayed to the active GM for execution. Players only get buttons on their own rolls and on rolls of actors they own. If no GM is online, the click shows a warning and nothing runs.
 
 ## Profiles
 
@@ -169,7 +177,7 @@ Imports merge by id or name. World-specific references such as tables, macros, j
 
 ## Runtime Behavior
 
-Only GMs process new chat messages for trigger matching. This keeps automation centralized and avoids duplicate execution between connected clients.
+Only the active GM processes new chat messages for trigger matching. When several GMs or Assistant GMs are online, Foundry designates one of them as the active GM (the highest role first), and only that client runs actions, shows the `Ask GM` dialog, and handles relayed player clicks. This keeps automation centralized and avoids duplicate execution between connected clients.
 
 The generic adapter reads Foundry roll data from chat messages and extracts:
 

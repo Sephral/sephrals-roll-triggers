@@ -1,3 +1,5 @@
+import { normalizeSuccessDegree } from "./roll-event.js";
+
 function normalizeArray(value) {
   return Array.isArray(value) ? value : value == null ? [] : [value];
 }
@@ -136,8 +138,11 @@ export function evaluateMatchCondition(match, event) {
       return Number(event.total ?? Number.NEGATIVE_INFINITY) > threshold;
     case "total-below":
       return Number(event.total ?? Number.POSITIVE_INFINITY) < threshold;
-    case "success-degree":
-      return String(event.successDegree ?? "") === String(match.degree ?? "");
+    case "success-degree": {
+      // Both sides are normalized, so "criticalSuccess", "critical-success" and PF2e's 3 all match.
+      const degree = normalizeSuccessDegree(match.degree);
+      return degree != null && normalizeSuccessDegree(event.successDegree) === degree;
+    }
     case "system-flag":
       return Boolean(globalThis.foundry?.utils?.getProperty?.(event.flags, match.path) ?? false);
     case "custom-js":
@@ -170,6 +175,12 @@ export function matchTrigger(trigger, event, options = {}) {
     actions: Array.isArray(trigger.actions) ? trigger.actions : [],
     executionMode: trigger.executionMode ?? options.defaultExecutionMode ?? "confirm-gm"
   };
+}
+
+// A trigger runs at most once per chat message (first matching roll) unless oncePerMessage is false
+// or allowMultipleMatches is true. Both fields are stored on every trigger, either one opts into a run per roll.
+export function allowsRepeatedMatches(trigger) {
+  return trigger?.oncePerMessage === false || trigger?.allowMultipleMatches === true;
 }
 
 export function collectMatches(triggers, event, options = {}) {

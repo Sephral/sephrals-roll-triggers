@@ -1,7 +1,15 @@
-import { executeMatch, hydrateDeferredMatch, markDeferredMatchExecuted, storeDeferredMatches } from "./actions.js";
-import { TriggerChatCardRenderer } from "./chat-card.js";
-import { collectMatches } from "./triggers.js";
-import { MODULE_ID } from "./settings.js";
+import { executeMatch, hydrateDeferredMatch, markDeferredMatchExecuted, storeDeferredMatches, TRIGGER_OUTPUT_FLAG } from "./actions.js";
+import { canUserRunTriggerButtons, TriggerChatCardRenderer } from "./chat-card.js";
+import { allowsRepeatedMatches, collectMatches } from "./triggers.js";
+import { localize, MODULE_ID } from "./settings.js";
+
+// createChatMessage fires on every connected client. Only the designated active GM (game.users.activeGM, v13 and v14)
+// processes rolls and relay requests, so a second GM or an Assistant GM does not repeat actions or confirm dialogs.
+export function isActiveGmClient() {
+  if (!game.user?.isGM) return false;
+  const activeGM = game.users?.activeGM;
+  return Boolean(activeGM) && activeGM.id === game.user.id;
+}
 
 export class RollTriggerService {
   constructor({ adapter, settings }) {
@@ -21,9 +29,11 @@ export class RollTriggerService {
   }
 
   async processChatMessage(message) {
-    if (!game.user?.isGM) return;
+    if (!isActiveGmClient()) return;
     if (!this.settings.enabled) return;
     if (!this.adapter.supportsMessage(message)) return;
+    // A roll table card posted by a trigger must not trigger again (no loops on the table's own roll).
+    if (message.getFlag?.(MODULE_ID, TRIGGER_OUTPUT_FLAG)) return;
 
     const messageKey = `${message.id}:${message.uuid ?? ""}`;
     if (this.processedMessages.has(messageKey)) return;
@@ -36,9 +46,12 @@ export class RollTriggerService {
 
     const events = this.adapter.extractRollEvents(message);
     const deferredMatches = [];
+    const matchedTriggers = new Set();
+    const maxActions = this.settings.maxActionsPerMessage;
     let executedActions = 0;
 
     for (const event of events) {
+      if (executedActions >= maxActions) break;
       this.log("Normalized roll event", event);
       const matches = collectMatches(triggers, event, {
         defaultExecutionMode: this.settings.defaultExecutionMode,
@@ -46,17 +59,31 @@ export class RollTriggerService {
       });
 
       for (const match of matches) {
+        if (executedActions >= maxActions) break;
+
+        // A card with several rolls (for example several damage parts) runs each trigger once unless it opts out.
+        const triggerKey = match.trigger.id ?? match.trigger;
+        if (matchedTriggers.has(triggerKey) && !allowsRepeatedMatches(match.trigger)) continue;
+        matchedTriggers.add(triggerKey);
+
+        // Skip a trigger whose actions would exceed the limit. Chat-button matches run later and cost nothing now.
+        const actionCount = Math.max(match.actions?.length ?? 0, 1);
+        if (match.executionMode !== "chat-button" && executedActions + actionCount > maxActions) {
+          this.log("Action limit reached", { triggerId: match.trigger.id, messageId: message.id, rollIndex: event.rollIndex });
+          continue;
+        }
+
         this.log("Matched trigger", { triggerId: match.trigger.id, messageId: message.id, rollIndex: event.rollIndex });
-        if (executedActions >= this.settings.maxActionsPerMessage) break;
 
         try {
           const result = await executeMatch(match, {
-            storeTriggeredInChat: this.settings.storeTriggeredInChat
+            storeTriggeredInChat: this.settings.storeTriggeredInChat,
+            respectPrivateRolls: this.settings.respectPrivateRolls
           });
           if (result?.deferred) {
             deferredMatches.push(match);
           } else if (!result?.skipped) {
-            executedActions += Math.max(match.actions?.length ?? 0, 1);
+            executedActions += actionCount;
           }
         } catch (error) {
           console.error("[SRT] Trigger action failed", error, match);
@@ -105,10 +132,18 @@ export class RollTriggerService {
     const request = this.getDeferredRequest(message);
 
     if (!request) return false;
-    if (!game.user?.isGM) return true;
+    if (!isActiveGmClient()) return true;
 
     const sourceMessage = game.messages?.get?.(request.messageId) ?? null;
     if (!sourceMessage) return true;
+
+    // Foundry only lets players create messages as themselves, so the relay author is the requesting user.
+    const requesterId = message._source?.author ?? message.author?.id ?? null;
+    const requester = game.users?.get?.(requesterId) ?? null;
+    if (!canUserRunTriggerButtons(sourceMessage, requester, { allowPlayerButtons: this.settings.allowPlayerButtons })) {
+      this.log("Rejected deferred trigger request", { messageId: request.messageId, triggerId: request.triggerId, requestedBy: requesterId });
+      return true;
+    }
 
     try {
       await this.executeDeferredTrigger(sourceMessage, request.triggerId, {
@@ -126,8 +161,12 @@ export class RollTriggerService {
   }
 
   async requestDeferredTriggerExecution(message, triggerId) {
+    // getWhisperRecipients("GM") also lists offline GMs. Without an active GM nobody would ever handle the request.
     const gmRecipients = ChatMessage.getWhisperRecipients("GM").map((user) => user.id);
-    if (!gmRecipients.length) return { skipped: true, reason: "no-active-gm" };
+    if (!gmRecipients.length || !game.users?.activeGM) {
+      globalThis.ui?.notifications?.warn?.(localize("Notification.NoActiveGm"));
+      return { skipped: true, reason: "no-active-gm" };
+    }
 
     await ChatMessage.create({
       content: "<div class=\"srt-deferred-request\" hidden></div>",
@@ -169,7 +208,8 @@ export class RollTriggerService {
       const result = await executeMatch(match, {
         allowDeferred: false,
         forceExecutionMode: "automatic",
-        storeTriggeredInChat: this.settings.storeTriggeredInChat
+        storeTriggeredInChat: this.settings.storeTriggeredInChat,
+        respectPrivateRolls: this.settings.respectPrivateRolls
       });
 
       if (!result?.skipped) {

@@ -127,6 +127,22 @@ test("normalizeAction preserves explicit action visibility", () => {
   );
 });
 
+test("normalizeAction falls back to message and table fields when the primary field is empty", () => {
+  assert.deepEqual(
+    __test__.normalizeAction({ type: "chat-message", template: "", message: "Legacy text" }),
+    { type: "chat-message", template: "Legacy text", visibility: "public" }
+  );
+  assert.deepEqual(
+    __test__.normalizeAction({ type: "gm-note", template: "", message: "Legacy note" }),
+    { type: "gm-note", template: "Legacy note" }
+  );
+  assert.deepEqual(
+    __test__.normalizeAction({ type: "roll-table", tables: [], table: "crit-table" }),
+    { type: "roll-table", tables: ["crit-table"], visibility: "gm" }
+  );
+  assert.equal(__test__.normalizeAction({ type: "roll-table", tables: [], table: "" }), null);
+});
+
 test("presentTrigger summarizes action types with visibility", () => {
   const presented = __test__.presentTrigger(__test__.normalizeTrigger({
     id: "combo",
