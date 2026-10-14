@@ -520,3 +520,23 @@ test("executeMatch applies the inherited roll privacy to chat actions", async ()
 
   assert.deepEqual(createdMessages.map((message) => message.whisper), [["gm-1"], ["gm-1"]]);
 });
+test("confirmExecution uses DialogV2 when available and treats closing as no", async () => {
+  const previousFoundry = globalThis.foundry;
+  const calls = [];
+  let answer = true;
+  globalThis.foundry = {
+    ...previousFoundry,
+    applications: { api: { DialogV2: { async confirm(options) { calls.push(options); return answer; } } } }
+  };
+  const match = { trigger: { name: "T" }, event: { actorName: "A", formula: "1d20", total: 20 }, actions: [] };
+  try {
+    assert.equal(await confirmExecution(match), true);
+    answer = null;
+    assert.equal(await confirmExecution(match), false);
+    assert.equal(calls.length, 2);
+    assert.equal(calls[0].window.title, "SRT.Dialog.ConfirmTitle");
+    assert.equal(calls[0].rejectClose, false);
+  } finally {
+    globalThis.foundry = previousFoundry;
+  }
+});

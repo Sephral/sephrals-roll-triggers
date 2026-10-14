@@ -64,11 +64,14 @@ function normalizeDiceTerm(term, index) {
   };
 }
 
+// A self roll is whispered to its author only. Core speaker data has no user, the author is the message's
+// source field (speaker.user is kept as a fallback for older data).
 function normalizeVisibility(message) {
   const whisperCount = Array.isArray(message?.whisper) ? message.whisper.length : 0;
   if (message?.blind) return "blind";
   if (whisperCount === 0) return "public";
-  if (message?.speaker?.user && whisperCount === 1 && message.whisper[0] === message.speaker.user) return "self";
+  const authorId = message?._source?.author ?? message?.author?.id ?? message?.speaker?.user ?? null;
+  if (authorId && whisperCount === 1 && message.whisper[0] === authorId) return "self";
   return "gm-private";
 }
 
@@ -146,6 +149,26 @@ function inferRollType(message, roll, systemId) {
   return roll?.options?.type ?? "any";
 }
 
+// dnd5e stores the targets of a roll as actor UUIDs (flags.dnd5e.targets), PF2e a single target token or actor
+// (flags.pf2e.context.target). Other systems store nothing, then the roller's current targets count. Those are synced
+// to every client, so the GM client sees them too. Token targets become token document UUIDs.
+export function getRollTargetUuids(message, user) {
+  const flags = message?.flags ?? {};
+  const uuids = [];
+  const add = (uuid) => {
+    const text = typeof uuid === "string" ? uuid.trim() : "";
+    if (text && !uuids.includes(text)) uuids.push(text);
+  };
+
+  for (const target of Array.isArray(flags.dnd5e?.targets) ? flags.dnd5e.targets : []) add(target?.uuid);
+  const pf2eTarget = flags.pf2e?.context?.target;
+  if (pf2eTarget) add(pf2eTarget.token ?? pf2eTarget.actor);
+  if (uuids.length) return uuids;
+
+  for (const token of user?.targets ?? []) add(token?.document?.uuid ?? token?.uuid);
+  return uuids;
+}
+
 function getMessageUserData(message) {
   // The source field is "author" since v12. Reading "user" logs a deprecation in v13 and is gone in v14,
   // so it is only a fallback for messages that lack the new field.
@@ -161,12 +184,15 @@ export function createRollEvent(message, roll, rollIndex, adapterId, extra = {})
 
   const diceTerms = flattenedTerms.filter((term) => isDiceTerm(term)).map((term, index) => normalizeDiceTerm(term, index));
   const diceResults = diceTerms.flatMap((term) => term.values.map((value) => ({ faces: term.faces, value })));
-  const actor = message?.getAssociatedActor?.() ?? null;
+  // getAssociatedActor is a dnd5e helper. Core messages expose the speaker actor (a synthetic actor for unlinked tokens).
+  const actor = message?.getAssociatedActor?.() ?? message?.speakerActor ?? null;
   const token = getSpeakerToken(message);
   const item = getAssociatedItem(message);
   const systemId = String(game.system?.id ?? "").trim() || "unknown";
   const systemVersion = String(game.system?.version ?? "").trim() || null;
   const { user, userId } = getMessageUserData(message);
+
+  // extra overrides let the test bench describe a roll that is not a real chat message (visibility, combat, targets).
 
   return {
     adapterId,
@@ -188,15 +214,16 @@ export function createRollEvent(message, roll, rollIndex, adapterId, extra = {})
     itemName: item?.name ?? null,
     user,
     userId,
-    visibility: normalizeVisibility(message),
+    visibility: extra.visibility ?? normalizeVisibility(message),
     rollMode: getRollMode(message),
-    isCombat: Boolean(game.combat?.started),
+    isCombat: extra.isCombat ?? Boolean(game.combat?.started),
     // The speaker's scene is where the roll happened. The scene the GM is viewing is only a fallback.
     sceneId: message?.speaker?.scene ?? globalThis.canvas?.scene?.id ?? null,
     formula: String(roll?.formula ?? "").trim(),
     total: Number.isFinite(Number(roll?.total)) ? Number(roll.total) : null,
     diceTerms,
     diceResults,
+    targetUuids: Array.isArray(extra.targetUuids) ? [...extra.targetUuids] : getRollTargetUuids(message, user),
     flags: message?.flags ?? {},
     rawMessage: message,
     rawRoll: roll,

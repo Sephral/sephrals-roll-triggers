@@ -456,3 +456,23 @@ test("createRollEvent prefers the speaker scene over the scene the GM is viewing
   assert.equal(createRollEvent(message, roll, 0, "generic").sceneId, "speaker-scene");
   assert.equal(createRollEvent({ ...message, speaker: {} }, roll, 0, "generic").sceneId, "viewed-scene");
 });
+test("createRollEvent detects a self roll from the message author (core speaker data has no user)", () => {
+  globalThis.game = {
+    system: { id: "dnd5e", version: "5.3.3" },
+    combat: null,
+    user: { id: "gm", isGM: true, name: "GM" },
+    users: { get(id) { return { id, name: id, isGM: id === "gm" }; } },
+    settings: { get() { return "public"; } },
+    scenes: { get() { return null; } }
+  };
+  globalThis.canvas = { scene: { id: "scene" } };
+  globalThis.foundry = { dice: { terms: { DiceTerm } } };
+  const roll = { formula: "1d20", total: 5, options: {}, terms: [new DiceTerm("1d20", 20, 5, [{ result: 5, active: true, discarded: false }])] };
+  const base = { id: "m", speaker: { scene: null, actor: null, token: null, alias: "Player" }, flags: {}, rolls: [roll], blind: false };
+
+  assert.equal(createRollEvent({ ...base, _source: { author: "player" }, whisper: ["player"] }, roll, 0, "generic").visibility, "self");
+  assert.equal(createRollEvent({ ...base, _source: { author: "player" }, whisper: ["gm"] }, roll, 0, "generic").visibility, "gm-private");
+  assert.equal(createRollEvent({ ...base, _source: { author: "player" }, whisper: ["gm", "player"] }, roll, 0, "generic").visibility, "gm-private");
+  assert.equal(createRollEvent({ ...base, _source: { author: "player" }, whisper: [] }, roll, 0, "generic").visibility, "public");
+  assert.equal(createRollEvent({ ...base, _source: { author: "player" }, whisper: ["gm"], blind: true }, roll, 0, "generic").visibility, "blind");
+});

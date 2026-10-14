@@ -75,28 +75,39 @@ function matchDiceCountByFaces(event, exactDiceCountByFaces) {
   return Object.entries(exactDiceCountByFaces).every(([faces, count]) => getDiceByFaces(event, Number(faces)).length === Number(count));
 }
 
+function matchPrivateRollOverride(event, filters, options) {
+  if (!options.respectPrivateRolls || filters.visibilityOverride === true) return true;
+  return !(["blind", "gm-private"].includes(event.visibility) && filters.forcePublic);
+}
+
+// The filter checks in the order matchTrigger applies them. The keys name the filter that blocked a roll,
+// so the test bench can explain a miss with exactly the checks the chat processing runs.
+const FILTER_CHECKS = [
+  ["playerOnly", (event, filters) => !(filters.playerOnly && event.user?.isGM)],
+  ["gmOnly", (event, filters) => !(filters.gmOnly && !event.user?.isGM)],
+  ["users", (event, filters) => hasSpecificUser(event, normalizeArray(filters.users))],
+  ["actorType", (event, filters) => matchActorType(event, normalizeArray(filters.actorType))],
+  ["rollType", (event, filters) => matchRollType(event, normalizeArray(filters.rollType))],
+  ["visibility", (event, filters) => matchVisibility(event, normalizeArray(filters.visibility))],
+  ["combatState", (event, filters) => matchCombatState(event, filters.combatState)],
+  ["scene", (event, filters) => matchScene(event, filters)],
+  ["actor", (event, filters) => matchActor(event, filters)],
+  ["item", (event, filters) => matchItem(event, filters)],
+  ["diceCount", (event, filters) => matchDiceCountByFaces(event, filters.exactDiceCountByFaces)],
+  ["privateRoll", (event, filters, options) => matchPrivateRollOverride(event, filters, options)]
+];
+
+export const FILTER_KEYS = Object.freeze(FILTER_CHECKS.map(([key]) => key));
+
+// Keys of every filter that blocks the roll. An empty list means the trigger passes its filters.
+export function getBlockingFilters(trigger, event, options = {}) {
+  const filters = trigger?.filters ?? {};
+  return FILTER_CHECKS.filter(([, check]) => !check(event, filters, options)).map(([key]) => key);
+}
+
 function passesFilters(trigger, event, options = {}) {
   const filters = trigger.filters ?? {};
-  const playerOnly = Boolean(filters.playerOnly);
-  const gmOnly = Boolean(filters.gmOnly);
-
-  if (playerOnly && event.user?.isGM) return false;
-  if (gmOnly && !event.user?.isGM) return false;
-  if (!hasSpecificUser(event, normalizeArray(filters.users))) return false;
-  if (!matchActorType(event, normalizeArray(filters.actorType))) return false;
-  if (!matchRollType(event, normalizeArray(filters.rollType))) return false;
-  if (!matchVisibility(event, normalizeArray(filters.visibility))) return false;
-  if (!matchCombatState(event, filters.combatState)) return false;
-  if (!matchScene(event, filters)) return false;
-  if (!matchActor(event, filters)) return false;
-  if (!matchItem(event, filters)) return false;
-  if (!matchDiceCountByFaces(event, filters.exactDiceCountByFaces)) return false;
-
-  if (options.respectPrivateRolls && filters.visibilityOverride !== true && ["blind", "gm-private"].includes(event.visibility) && filters.forcePublic) {
-    return false;
-  }
-
-  return true;
+  return FILTER_CHECKS.every(([, check]) => check(event, filters, options));
 }
 
 function evaluateCustomJs(match, event) {
@@ -124,7 +135,8 @@ export function evaluateMatchCondition(match, event) {
     case "at-least-n-max":
       return countMax(dice) >= minCount;
     case "all-same":
-      return dice.length > 0 && dice.every((entry) => entry.value === dice[0].value);
+      // One die alone is no "all the same": a doubles trigger must not fire on every single die roll.
+      return dice.length > 1 && dice.every((entry) => entry.value === dice[0].value);
     case "at-least-n-same": {
       const counts = new Map();
       for (const entry of dice) counts.set(entry.value, (counts.get(entry.value) ?? 0) + 1);
@@ -183,16 +195,91 @@ export function allowsRepeatedMatches(trigger) {
   return trigger?.oncePerMessage === false || trigger?.allowMultipleMatches === true;
 }
 
+export function orderTriggersByPriority(triggers) {
+  return [...(triggers ?? [])].sort((left, right) => Number(right.priority ?? 0) - Number(left.priority ?? 0));
+}
+
+// Triggers already reported as failing (id and condition), so a broken trigger warns once and not on every roll.
+const reportedFailures = new Set();
+
+// A trigger whose custom condition throws counts as not matched, like in the test bench. It must not stop the
+// other triggers of the roll.
+function tryMatchTrigger(trigger, event, options) {
+  try {
+    return matchTrigger(trigger, event, options);
+  } catch (error) {
+    const key = `${trigger?.id ?? trigger?.name ?? "?"}:${JSON.stringify(getTriggerConditions(trigger))}`;
+    if (!reportedFailures.has(key)) {
+      reportedFailures.add(key);
+      console.warn(`[SRT] Trigger "${trigger?.name ?? trigger?.id ?? "?"}" failed to evaluate and was skipped`, error);
+    }
+    return null;
+  }
+}
+
 export function collectMatches(triggers, event, options = {}) {
-  const ordered = [...(triggers ?? [])].sort((left, right) => Number(right.priority ?? 0) - Number(left.priority ?? 0));
+  const ordered = orderTriggersByPriority(triggers);
   const matches = [];
 
   for (const trigger of ordered) {
-    const match = matchTrigger(trigger, event, options);
+    const match = tryMatchTrigger(trigger, event, options);
     if (!match) continue;
     matches.push(match);
     if (trigger.stopLowerPriority) break;
   }
 
   return matches;
+}
+
+// Each condition on its own, for the test bench. A custom condition that throws counts as failed and keeps its error.
+export function explainTriggerConditions(trigger, event) {
+  return getTriggerConditions(trigger).map((condition, index) => {
+    try {
+      return { index, condition, passed: Boolean(evaluateMatchCondition(condition, event)), error: null };
+    } catch (error) {
+      return { index, condition, passed: false, error: String(error?.message ?? error) };
+    }
+  });
+}
+
+// Why a trigger matches a roll or not. The verdict itself comes from matchTrigger, the same call the chat
+// processing makes, the filter and condition lists only explain it.
+export function explainTrigger(trigger, event, options = {}) {
+  let match = null;
+  let error = null;
+  try {
+    match = matchTrigger(trigger, event, options);
+  } catch (caught) {
+    error = String(caught?.message ?? caught);
+  }
+
+  return {
+    trigger,
+    enabled: Boolean(trigger?.enabled),
+    blockedBy: getBlockingFilters(trigger, event, options),
+    conditions: explainTriggerConditions(trigger, event),
+    matched: Boolean(match),
+    match,
+    error,
+    stoppedBy: null
+  };
+}
+
+// Runs every trigger like collectMatches does and explains each one. Triggers below a matching trigger with
+// "stop lower priority" are reported as stopped, exactly where collectMatches stops.
+export function simulateTriggers(triggers, event, options = {}) {
+  const reports = [];
+  let stoppedBy = null;
+
+  for (const trigger of orderTriggersByPriority(triggers)) {
+    const report = explainTrigger(trigger, event, options);
+    if (stoppedBy) {
+      reports.push({ ...report, matched: false, match: null, stoppedBy });
+      continue;
+    }
+    reports.push(report);
+    if (report.matched && trigger.stopLowerPriority) stoppedBy = trigger;
+  }
+
+  return reports;
 }

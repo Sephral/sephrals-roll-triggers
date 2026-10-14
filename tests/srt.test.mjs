@@ -183,3 +183,20 @@ test("scene control toggle can reopen while a prior close is still pending", asy
     triggerManagerTest.resetManagerApp();
   }
 });
+test("players cannot open the trigger manager through the API", async () => {
+  const originalRender = SRTTriggerManager.prototype.render;
+  let renderCount = 0;
+  SRTTriggerManager.prototype.render = function () {
+    renderCount += 1;
+    return this;
+  };
+  game.user.isGM = false;
+  try {
+    assert.equal(await openTriggerManager(), null);
+    assert.equal(renderCount, 0);
+  } finally {
+    game.user.isGM = true;
+    SRTTriggerManager.prototype.render = originalRender;
+    triggerManagerTest.resetManagerApp();
+  }
+});

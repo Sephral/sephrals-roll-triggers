@@ -253,3 +253,32 @@ test("allowsRepeatedMatches opts into a run per roll with either stored option",
   assert.equal(allowsRepeatedMatches({ allowMultipleMatches: true }), true);
   assert.equal(allowsRepeatedMatches(null), false);
 });
+
+test("collectMatches skips a trigger whose custom condition throws and keeps the others", () => {
+  const triggers = [
+    { id: "broken", enabled: true, priority: 200, filters: {}, match: { type: "custom-js", expression: "event.nope.boom === 1" }, actions: [] },
+    { id: "nat20", enabled: true, priority: 100, filters: {}, match: { type: "die-max", faces: 20, minCount: 1 }, actions: [] }
+  ];
+  const originalWarn = console.warn;
+  const warnings = [];
+  console.warn = (...args) => warnings.push(args);
+  globalThis.game = { user: { isGM: true } };
+  try {
+    const matches = collectMatches(triggers, createEvent());
+    assert.deepEqual(matches.map((match) => match.trigger.id), ["nat20"]);
+    assert.equal(warnings.length, 1);
+    // The same broken trigger warns only once.
+    collectMatches(triggers, createEvent());
+    assert.equal(warnings.length, 1);
+  } finally {
+    console.warn = originalWarn;
+  }
+});
+
+test("all-same needs at least two dice of the type", () => {
+  const match = { type: "all-same", faces: 6 };
+  assert.equal(evaluateMatchCondition(match, createEvent({ diceResults: [{ faces: 6, value: 4 }] })), false);
+  assert.equal(evaluateMatchCondition(match, createEvent({ diceResults: [{ faces: 6, value: 4 }, { faces: 6, value: 4 }] })), true);
+  assert.equal(evaluateMatchCondition(match, createEvent({ diceResults: [{ faces: 6, value: 4 }, { faces: 6, value: 3 }] })), false);
+  assert.equal(evaluateMatchCondition(match, createEvent({ diceResults: [{ faces: 6, value: 4 }, { faces: 8, value: 4 }] })), false);
+});

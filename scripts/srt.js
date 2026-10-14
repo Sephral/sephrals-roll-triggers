@@ -1,7 +1,7 @@
 import { GenericRollAdapter } from "./adapters/generic-adapter.js";
 import { RollTriggerService } from "./roll-trigger-service.js";
 import { getInternalProfiles } from "./default-presets.js";
-import { openTriggerManager, SRTSettingsMenu, toggleTriggerManager } from "./trigger-manager.js";
+import { openTriggerManager, openTriggerTestBench, SRTSettingsMenu, toggleTriggerManager } from "./trigger-manager.js";
 import {
   createSettingsFacade,
   ensureModuleTranslationsLoaded,
@@ -64,7 +64,8 @@ Hooks.once("ready", async () => {
   if (module) {
     module.api = {
       openManager: openTriggerManager,
-      toggleManager: toggleTriggerManager
+      toggleManager: toggleTriggerManager,
+      openTestBench: openTriggerTestBench
     };
   }
 });

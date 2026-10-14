@@ -53,7 +53,7 @@ A trigger fires at most once per chat message, even when the message holds sever
 * At least N dice show a specific value
 * At least N dice show minimum
 * At least N dice show maximum
-* All dice of a type show the same value
+* All dice of a type show the same value (needs at least two dice of that type)
 * At least N dice of a type show the same value
 * A die result is above or below a threshold
 * Total result above or below a threshold
@@ -86,15 +86,24 @@ In D&D 5e, ability and tool checks count as *check*, death saves as *save*, hit 
 
 ## Actions
 
-Each trigger can hold several actions. Empty actions are ignored.
+Each trigger can hold several actions. Empty actions are ignored, and a trigger without any action does nothing.
 
 * **Chat message:** posts a message from your template
 * **Roll table:** draws from a roll table and posts Foundry's result card
 * **Macro:** runs a macro
 * **Journal link:** posts a link to a journal entry. With an empty template it posts the trigger name and the link, a template of your own replaces both (`{{journal.name}}` and `{{journal.uuid}}` are available)
 * **GM note:** sends a note to the GMs
+* **Play sound:** plays an audio file. Pick it with the browse button and set the volume from 0 to 100 (80 when left empty). Public plays for everyone, GM whisper for the GMs only, player whisper for the player who rolled
+* **Apply status or effect:** gives the actor who rolled, or every token the roller targeted, a status from your game system such as Prone. Instead of a status you can enter the UUID of an existing Active Effect, for example one on an item, and the actor gets a copy. An optional duration in rounds lets the effect run out in combat. An actor that already has the status or the copied effect keeps it unchanged
+* **Change resource:** adds to, subtracts from or sets an attribute of the actor who rolled. The path starts with `system.`, for example `system.attributes.inspiration` (D&D 5e), `system.bennies.value` (Savage Worlds) or `system.resources.heroism.value` (Crucible). The value is a number or a placeholder such as `{{roll.total}}`. When the attribute has a maximum next to it (`.max` beside `.value`), the result stays between 0 (or the `.min` value) and that maximum. Yes or no attributes such as D&D 5e inspiration are switched on by adding or setting a value above 0 and switched off by subtracting or setting 0
+* **Show image:** opens an image or video in a popout window with an optional caption. Public shows it to everyone, GM whisper to the GMs, player whisper to the player who rolled
+* **Roll formula:** rolls an extra formula to the chat, for example `1d10` for a fumble table die, with an optional flavor text above the roll. This roll never fires triggers itself
 
-Where it makes sense, an action can be public, whispered to the GM or whispered to the player who rolled.
+Where it makes sense, an action can be public, whispered to the GM or whispered to the player who rolled. The new actions follow the execution modes and the once per message rule like all other actions, and with *Respect private rolls* a public sound or image of a private or blind roll only reaches the GMs.
+
+The editor checks the sound, effect, resource, image and formula actions when you save. If something is missing, a message names the action and the editor stays open.
+
+For targeted tokens, D&D 5e and Pathfinder 2e store the targets on the roll. In other systems the tokens the roller has targeted when the roll arrives count.
 
 Templates can use these placeholders:
 
@@ -106,7 +115,7 @@ Templates can use these placeholders:
 * `{{roll.type}}`
 * `{{roll.results}}`
 
-Templates may contain HTML. Values such as actor or user names are inserted as plain text.
+Templates may contain HTML. Values such as actor or user names are inserted as plain text. The placeholders also work in the image caption, the roll formula, its flavor text and the resource value.
 
 ## Execution modes
 
@@ -119,6 +128,29 @@ Templates may contain HTML. Values such as actor or user names are inserted as p
 When a player clicks a chat button, the GM's client runs the actions. Players only get buttons on their own rolls and on rolls of actors they own. If no GM is online, the click shows a warning and nothing runs.
 
 With several GMs or Assistant GMs online, only one of them runs the triggers, so nothing happens twice.
+
+## Test bench
+
+`Test` in the trigger list opens the test bench. It shows which triggers a roll would fire and why, without posting anything.
+
+1. Enter a formula such as `2d6+3`, `1d20` or `1d100`.
+2. Set the face of each die, or leave a die empty to roll it randomly. Up to 20 dice can be set.
+3. Choose the roll type, the actor (optional), who rolled, the roll visibility, the success degree for success degree conditions and whether the roll counts as in combat. The tokens you have targeted count as the targets of the roll.
+4. Click `Simulate`.
+
+Every trigger appears in priority order with its verdict:
+
+* **Matches:** the conditions are true and no filter blocks the roll. The card shows what the execution mode would do and which actions would run, or that the trigger would be skipped because of the action limit per message
+* **No match:** each condition is listed with a check mark or a cross, and every filter that blocks the roll is named
+* **Switched off:** the trigger is disabled
+* **Not checked:** a trigger with a higher priority matched and stops the triggers below it
+
+The bench uses the same roll reading and the same matching as real rolls, so its verdict is the one you get in play. Nothing runs and no chat message is created until you choose one of these:
+
+* **Run actions for real:** after a confirmation, runs the actions of every matching trigger right away, whatever its execution mode. Disabled triggers and triggers over the action limit are left out. Messages, sounds and changes to actors really happen
+* **Roll to chat:** posts a real roll with the same dice, roll type, success degree and visibility, so the whole chat processing runs end to end. Combat and the roller are the real ones here, and the roll is posted by you
+
+Macro users can open the bench with `game.modules.get("sephrals-roll-triggers").api.openTestBench()`.
 
 ## Profiles
 
@@ -144,7 +176,7 @@ Starter profiles are included for:
 * Daggerheart
 * A generic profile for doubles on d100 rolls
 
-The starter profiles use general dice patterns, so you may want to adjust them to your table's house rules. They are starting points, not official rule implementations.
+The starter profiles use general dice patterns, so you may want to adjust them to your table's house rules. They are starting points, not official rule implementations. Most starter triggers come without actions: add the actions you want in the editor. Until then such a trigger does nothing when it matches, it neither asks the GM nor shows a chat button. Only the GM whisper log mode still reports the match.
 
 ## Import and export
 

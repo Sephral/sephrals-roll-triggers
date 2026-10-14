@@ -11,6 +11,21 @@ import {
   saveProfileStore,
   saveTriggerStore
 } from "./settings.js";
+import {
+  ACTION_LABEL_KEYS,
+  ACTION_VISIBILITY_LABEL_KEYS,
+  DEFAULT_SOUND_VOLUME,
+  describeAction,
+  EFFECT_TARGETS,
+  findStatusEffect,
+  getStatusEffectLabel,
+  isSafeResourcePath,
+  normalizeEffectRounds,
+  normalizeVolume,
+  RESOURCE_OPERATIONS
+} from "./actions.js";
+import { FILTER_VISIBILITY_CHOICES, ROLL_TYPE_CHOICES } from "./choices.js";
+import { openTestBench } from "./roll-test-bench.js";
 
 let managerApp = null;
 const EXPORT_FORMAT_VERSION = 1;
@@ -39,41 +54,23 @@ const MATCH_TYPE_CHOICES = {
   "custom-js": "Match.CustomJs"
 };
 
-const ROLL_TYPE_CHOICES = {
-  any: "RollType.Any",
-  attack: "RollType.Attack",
-  check: "RollType.Check",
-  save: "RollType.Save",
-  damage: "RollType.Damage",
-  healing: "RollType.Healing",
-  skill: "RollType.Skill",
-  initiative: "RollType.Initiative",
-  utility: "RollType.Utility",
-  other: "RollType.Other"
-};
-
 const ACTION_TYPE_CHOICES = {
   none: "Action.None",
-  "chat-message": "Action.ChatMessage",
-  "roll-table": "Action.RollTable",
-  macro: "Action.Macro",
-  "journal-link": "Action.JournalLink",
-  "gm-note": "Action.GmNote"
+  ...ACTION_LABEL_KEYS
 };
 
-const ACTION_VISIBILITY_CHOICES = {
-  public: "Visibility.Public",
-  gm: "Visibility.Gm",
-  player: "Visibility.Player"
+const EFFECT_TARGET_CHOICES = {
+  actor: "EffectTarget.Actor",
+  targets: "EffectTarget.Targets"
 };
 
-const FILTER_VISIBILITY_CHOICES = {
-  any: "Visibility.Any",
-  public: "Visibility.Public",
-  "gm-private": "Visibility.Gm",
-  blind: "Visibility.Blind",
-  self: "Visibility.Self"
+const RESOURCE_OPERATION_CHOICES = {
+  add: "ResourceOperation.Add",
+  subtract: "ResourceOperation.Subtract",
+  set: "ResourceOperation.Set"
 };
+
+const ACTION_VISIBILITY_CHOICES = { ...ACTION_VISIBILITY_LABEL_KEYS };
 
 const ACTOR_TYPE_CHOICES = {
   any: "ActorType.Any",
@@ -94,8 +91,16 @@ const ACTION_FIELD_VISIBILITY = {
   "roll-table": { visibility: true, template: false, tables: true, macro: false, journal: false },
   macro: { visibility: false, template: false, tables: false, macro: true, journal: false },
   "journal-link": { visibility: true, template: true, tables: false, macro: false, journal: true },
-  "gm-note": { visibility: false, template: true, tables: false, macro: false, journal: false }
+  "gm-note": { visibility: false, template: true, tables: false, macro: false, journal: false },
+  // Fields that an entry does not list stay hidden.
+  "play-sound": { visibility: true, sound: true, volume: true },
+  "apply-effect": { status: true, effectUuid: true, rounds: true, effectTarget: true },
+  "change-resource": { resourcePath: true, resourceOperation: true, resourceValue: true },
+  "show-image": { visibility: true, image: true, caption: true },
+  "roll-formula": { visibility: true, formula: true, flavor: true }
 };
+
+const TEMPLATE_PLACEHOLDER = /\{\{\s*[\w.]+\s*\}\}/;
 
 const MATCH_FIELD_VISIBILITY = {
   "die-value": { faces: true, value: true, threshold: false, minCount: false, degree: false, path: false, expression: false },
@@ -672,6 +677,7 @@ function configureTriggerDialog(dialogHtml) {
     select.addEventListener("change", updateState);
     updateState();
   }
+  configureFilePickerButtons(root);
 
   ensureTriggerDialogSize(root);
   resizeTriggerDialogToContent(root);
@@ -711,22 +717,7 @@ function getActionSummary(trigger) {
   const actions = Array.isArray(trigger.actions) ? trigger.actions : [];
   if (!actions.length) return localize("Action.None");
 
-  return actions.map((action) => {
-    const typeLabel = action.type === "chat-message"
-      ? localize("Action.ChatMessage")
-      : action.type === "roll-table"
-        ? localize("Action.RollTable")
-        : action.type === "macro"
-          ? localize("Action.Macro")
-          : action.type === "journal-link"
-            ? localize("Action.JournalLink")
-            : action.type === "gm-note"
-              ? localize("Action.GmNote")
-              : action.type;
-    const visibilityLabel = localize(ACTION_VISIBILITY_CHOICES[action.visibility] ?? "Visibility.Public");
-    if (["macro", "gm-note"].includes(action.type)) return typeLabel;
-    return `${typeLabel} (${visibilityLabel})`;
-  }).join(" + ");
+  return actions.map((action) => describeAction(action)).join(" + ");
 }
 
 // Empty match fields are null after normalization. Number(null) would display them as 0.
@@ -833,7 +824,234 @@ function normalizeAction(action) {
     };
   }
 
+  if (action.type === "play-sound") {
+    const sound = String(action.sound ?? "").trim();
+    if (!sound) return null;
+
+    return {
+      type: "play-sound",
+      sound,
+      volume: normalizeVolume(action.volume),
+      visibility: String(action.visibility ?? "public")
+    };
+  }
+
+  if (action.type === "apply-effect") {
+    const status = String(action.status ?? "").trim();
+    const effectUuid = String(action.effectUuid ?? "").trim();
+    if (!status && !effectUuid) return null;
+
+    return {
+      type: "apply-effect",
+      status,
+      effectUuid,
+      rounds: normalizeEffectRounds(action.rounds),
+      target: EFFECT_TARGETS.includes(action.target) ? action.target : "actor"
+    };
+  }
+
+  if (action.type === "change-resource") {
+    const path = String(action.path ?? "").trim();
+    const value = String(action.value ?? "").trim();
+    if (!isSafeResourcePath(path) || !value) return null;
+
+    return {
+      type: "change-resource",
+      path,
+      operation: RESOURCE_OPERATIONS.includes(action.operation) ? action.operation : "add",
+      value
+    };
+  }
+
+  if (action.type === "show-image") {
+    const image = String(action.image ?? "").trim();
+    if (!image) return null;
+
+    return {
+      type: "show-image",
+      image,
+      caption: String(action.caption ?? "").trim(),
+      visibility: String(action.visibility ?? "public")
+    };
+  }
+
+  if (action.type === "roll-formula") {
+    const formula = String(action.formula ?? "").trim();
+    if (!formula) return null;
+
+    return {
+      type: "roll-formula",
+      formula,
+      flavor: String(action.flavor ?? "").trim(),
+      visibility: String(action.visibility ?? "public")
+    };
+  }
+
   return null;
+}
+
+function isValidFormula(formula) {
+  if (TEMPLATE_PLACEHOLDER.test(formula)) return true;
+  const validate = globalThis.Roll?.validate;
+  return typeof validate === "function" ? Boolean(validate.call(globalThis.Roll, formula)) : true;
+}
+
+// Problems of one editor action slot (raw form values, volume in percent). The new action types are checked,
+// the older ones keep their behavior: an incomplete entry is dropped when the trigger is saved.
+function validateEditorAction(action, index) {
+  const slot = index + 1;
+  const errors = [];
+  const text = (value) => String(value ?? "").trim();
+  const add = (key) => errors.push(format(`Validation.${key}`, { slot }));
+
+  switch (action?.type) {
+    case "play-sound": {
+      if (!text(action.sound)) add("SoundMissing");
+      const volume = text(action.volumePercent);
+      if (volume && !(Number(volume) >= 0 && Number(volume) <= 100)) add("VolumeRange");
+      break;
+    }
+    case "apply-effect": {
+      const status = text(action.status);
+      if (!status && !text(action.effectUuid)) add("EffectMissing");
+      const hasStatusList = typeof globalThis.CONFIG?.statusEffects?.find === "function";
+      if (status && hasStatusList && !findStatusEffect(status)) add("StatusUnknown");
+      if (text(action.rounds) && !normalizeEffectRounds(action.rounds)) add("RoundsInvalid");
+      break;
+    }
+    case "change-resource": {
+      if (!isSafeResourcePath(action.path)) add("ResourcePath");
+      const value = text(action.value);
+      if (!value) add("ResourceValueMissing");
+      else if (!TEMPLATE_PLACEHOLDER.test(value) && !Number.isFinite(Number(value))) add("ResourceValueInvalid");
+      break;
+    }
+    case "show-image":
+      if (!text(action.image)) add("ImageMissing");
+      break;
+    case "roll-formula": {
+      const formula = text(action.formula);
+      if (!formula) add("FormulaMissing");
+      else if (!isValidFormula(formula)) add("FormulaInvalid");
+      break;
+    }
+    default:
+      break;
+  }
+
+  return errors;
+}
+
+function validateEditorActions(actions) {
+  return (Array.isArray(actions) ? actions : []).flatMap((action, index) => validateEditorAction(action, index));
+}
+
+function getStatusEffectChoices(selected = "") {
+  const statuses = Array.from(globalThis.CONFIG?.statusEffects ?? []).filter((status) => status?.id);
+  const entries = statuses
+    .map((status) => [String(status.id), getStatusEffectLabel(status.id)])
+    .sort(([, left], [, right]) => left.localeCompare(right, game.i18n?.lang));
+  const choices = { "": localize("Dialog.StatusNone"), ...Object.fromEntries(entries) };
+  const current = String(selected ?? "").trim();
+  if (current && !choices[current]) choices[current] = current;
+  return choices;
+}
+
+function renderActionInputField({ field, name, value, labelKey, hintKey, type = "text", attributes = "" }) {
+  return `
+              <div class="form-group" data-srt-action-field="${field}">
+                ${renderDialogLabel(labelKey, hintKey)}
+                <input type="${type}" name="${name}" value="${escapeHtml(value ?? "")}"${attributes ? ` ${attributes}` : ""}>
+              </div>`;
+}
+
+function renderActionSelectField({ field, name, choices, selected, labelKey, hintKey }) {
+  return `
+              <div class="form-group" data-srt-action-field="${field}">
+                ${renderDialogLabel(labelKey, hintKey)}
+                <select name="${name}">${buildSelectOptions(choices, selected)}</select>
+              </div>`;
+}
+
+function renderActionFileField({ field, name, value, labelKey, hintKey, pickerType }) {
+  const browse = escapeHtml(localize("Dialog.BrowseFiles"));
+  return `
+              <div class="form-group" data-srt-action-field="${field}">
+                ${renderDialogLabel(labelKey, hintKey)}
+                <div class="form-fields srt-file-field">
+                  <input type="text" name="${name}" value="${escapeHtml(value ?? "")}">
+                  <button type="button" class="srt-file-picker" data-srt-file-picker="${pickerType}" data-srt-file-target="${name}" title="${browse}" aria-label="${browse}">
+                    <i class="fa-solid fa-file-import" aria-hidden="true"></i>
+                  </button>
+                </div>
+              </div>`;
+}
+
+// Editor fields of the sound, effect, resource, image and formula actions for one action slot.
+function renderExtendedActionFields(action, index) {
+  return [
+    renderActionFileField({ field: "sound", name: `triggerSound${index}`, value: action.sound, labelKey: "Dialog.TriggerSound", hintKey: "DialogHint.TriggerSound", pickerType: "audio" }),
+    renderActionInputField({ field: "volume", name: `triggerSoundVolume${index}`, value: action.volumePercent, type: "number", attributes: "min=\"0\" max=\"100\" step=\"5\"", labelKey: "Dialog.TriggerSoundVolume", hintKey: "DialogHint.TriggerSoundVolume" }),
+    renderActionSelectField({ field: "status", name: `triggerEffectStatus${index}`, choices: getStatusEffectChoices(action.status), selected: action.status, labelKey: "Dialog.TriggerEffectStatus", hintKey: "DialogHint.TriggerEffectStatus" }),
+    renderActionInputField({ field: "effectUuid", name: `triggerEffectUuid${index}`, value: action.effectUuid, labelKey: "Dialog.TriggerEffectUuid", hintKey: "DialogHint.TriggerEffectUuid" }),
+    renderActionInputField({ field: "rounds", name: `triggerEffectRounds${index}`, value: action.rounds ?? "", type: "number", attributes: "min=\"1\" step=\"1\"", labelKey: "Dialog.TriggerEffectRounds", hintKey: "DialogHint.TriggerEffectRounds" }),
+    renderActionSelectField({ field: "effectTarget", name: `triggerEffectTarget${index}`, choices: localizeChoiceMap(EFFECT_TARGET_CHOICES), selected: action.target, labelKey: "Dialog.TriggerEffectTarget", hintKey: "DialogHint.TriggerEffectTarget" }),
+    renderActionInputField({ field: "resourcePath", name: `triggerResourcePath${index}`, value: action.path, labelKey: "Dialog.TriggerResourcePath", hintKey: "DialogHint.TriggerResourcePath", attributes: "spellcheck=\"false\"" }),
+    renderActionSelectField({ field: "resourceOperation", name: `triggerResourceOperation${index}`, choices: localizeChoiceMap(RESOURCE_OPERATION_CHOICES), selected: action.operation, labelKey: "Dialog.TriggerResourceOperation", hintKey: "DialogHint.TriggerResourceOperation" }),
+    renderActionInputField({ field: "resourceValue", name: `triggerResourceValue${index}`, value: action.value, labelKey: "Dialog.TriggerResourceValue", hintKey: "DialogHint.TriggerResourceValue" }),
+    renderActionFileField({ field: "image", name: `triggerImage${index}`, value: action.image, labelKey: "Dialog.TriggerImage", hintKey: "DialogHint.TriggerImage", pickerType: "imagevideo" }),
+    renderActionInputField({ field: "caption", name: `triggerImageCaption${index}`, value: action.caption, labelKey: "Dialog.TriggerImageCaption", hintKey: "DialogHint.TriggerImageCaption" }),
+    renderActionInputField({ field: "formula", name: `triggerRollFormula${index}`, value: action.formula, labelKey: "Dialog.TriggerRollFormula", hintKey: "DialogHint.TriggerRollFormula", attributes: "spellcheck=\"false\"" }),
+    renderActionInputField({ field: "flavor", name: `triggerRollFlavor${index}`, value: action.flavor, labelKey: "Dialog.TriggerRollFlavor", hintKey: "DialogHint.TriggerRollFlavor" })
+  ].join("");
+}
+
+function readExtendedActionFields(dialogHtml, index) {
+  const read = (selector) => String(dialogHtml.find(selector).val() ?? "");
+  const volumePercent = read(`input[name="triggerSoundVolume${index}"]`).trim();
+
+  return {
+    sound: read(`input[name="triggerSound${index}"]`),
+    volumePercent,
+    volume: volumePercent === "" ? DEFAULT_SOUND_VOLUME : Number(volumePercent) / 100,
+    status: read(`select[name="triggerEffectStatus${index}"]`),
+    effectUuid: read(`input[name="triggerEffectUuid${index}"]`),
+    rounds: read(`input[name="triggerEffectRounds${index}"]`),
+    target: read(`select[name="triggerEffectTarget${index}"]`) || "actor",
+    path: read(`input[name="triggerResourcePath${index}"]`),
+    operation: read(`select[name="triggerResourceOperation${index}"]`) || "add",
+    value: read(`input[name="triggerResourceValue${index}"]`),
+    image: read(`input[name="triggerImage${index}"]`),
+    caption: read(`input[name="triggerImageCaption${index}"]`),
+    formula: read(`input[name="triggerRollFormula${index}"]`),
+    flavor: read(`input[name="triggerRollFlavor${index}"]`)
+  };
+}
+
+function openFilePickerFor(input, type) {
+  const FilePickerClass = globalThis.foundry?.applications?.apps?.FilePicker?.implementation;
+  if (!input || !FilePickerClass) return null;
+
+  const picker = new FilePickerClass({
+    type,
+    current: input.value,
+    callback: (path) => {
+      input.value = path;
+      input.dispatchEvent?.(new Event("change", { bubbles: true }));
+    }
+  });
+  picker.render({ force: true });
+  return picker;
+}
+
+function configureFilePickerButtons(root) {
+  for (const button of root.querySelectorAll?.("[data-srt-file-picker]") ?? []) {
+    button.addEventListener("click", (event) => {
+      event?.preventDefault?.();
+      const input = root.querySelector?.(`[name="${button.dataset.srtFileTarget}"]`) ?? null;
+      openFilePickerFor(input, button.dataset.srtFilePicker);
+    });
+  }
 }
 
 function normalizeActionList(actions, fallback = []) {
@@ -897,7 +1115,20 @@ function buildEditableActions(actions) {
     tables: Array.isArray(action.tables) ? action.tables : normalizeCommaList(action.tables ?? ""),
     macro: String(action.macro ?? ""),
     journal: String(action.journal ?? ""),
-    visibility: String(action.visibility ?? (action.type === "roll-table" ? "gm" : "public"))
+    visibility: String(action.visibility ?? (action.type === "roll-table" ? "gm" : "public")),
+    sound: String(action.sound ?? ""),
+    volumePercent: Math.round(normalizeVolume(action.volume) * 100),
+    status: String(action.status ?? ""),
+    effectUuid: String(action.effectUuid ?? ""),
+    rounds: normalizeEffectRounds(action.rounds),
+    target: EFFECT_TARGETS.includes(action.target) ? action.target : "actor",
+    path: String(action.path ?? ""),
+    operation: RESOURCE_OPERATIONS.includes(action.operation) ? action.operation : "add",
+    value: String(action.value ?? ""),
+    image: String(action.image ?? ""),
+    caption: String(action.caption ?? ""),
+    formula: String(action.formula ?? ""),
+    flavor: String(action.flavor ?? "")
   }));
 }
 
@@ -948,7 +1179,9 @@ function normalizeTrigger(trigger, fallback = {}) {
       includeActors: normalizeCommaList(trigger?.filters?.includeActors ?? fallback.includeActors ?? ""),
       includeItems: normalizeCommaList(trigger?.filters?.includeItems ?? fallback.includeItems ?? ""),
       playerOnly: Boolean(trigger?.filters?.playerOnly ?? fallback.playerOnly),
-      gmOnly: Boolean(trigger?.filters?.gmOnly ?? fallback.gmOnly)
+      gmOnly: Boolean(trigger?.filters?.gmOnly ?? fallback.gmOnly),
+      // User ids have no editor field (imports and macros set them), but saving a trigger must keep them.
+      users: normalizeCommaList(trigger?.filters?.users ?? fallback.users ?? "")
     },
     actions: normalizedActions,
     source: trigger?.source ?? fallback.source ?? "user"
@@ -1136,6 +1369,12 @@ function presentTrigger(trigger) {
   };
 }
 
+// "Show internal presets" off hides the included starter profiles, imported profiles stay visible.
+function getVisibleProfiles(profiles, showInternalPresets = true) {
+  const list = Array.isArray(profiles) ? profiles : [];
+  return showInternalPresets ? list : list.filter((profile) => profile?.source !== "internal-preset");
+}
+
 function presentProfile(profile) {
   return {
     ...profile,
@@ -1152,11 +1391,20 @@ function buildSelectOptions(choices, selected) {
     .join("");
 }
 
+// New triggers start with the execution mode chosen in the module settings.
+function getDefaultExecutionMode() {
+  try {
+    return getRuntimeOptions().defaultExecutionMode || "confirm-gm";
+  } catch (_error) {
+    return "confirm-gm";
+  }
+}
+
 async function promptTriggerData(trigger = null, duplicate = false) {
   const current = normalizeTrigger(trigger ?? {}, {
     name: "",
     category: "house-rule",
-    executionMode: "confirm-gm",
+    executionMode: getDefaultExecutionMode(),
     match: { type: "die-max", faces: 20, value: null, threshold: null, minCount: 1, degree: null, path: null, expression: null },
     action: { type: "none" },
     rollType: "",
@@ -1307,49 +1555,21 @@ async function promptTriggerData(trigger = null, duplicate = false) {
                 ${renderDialogLabel("Dialog.TriggerJournal", "DialogHint.TriggerJournal")}
                 <select name="triggerJournal${index}">${buildSelectOptions({ "": "None", ...getReferenceSelectChoices("journal", action.journal ?? "") }, getSelectedReferenceValue(action.journal))}</select>
               </div>
+              ${renderExtendedActionFields(action, index)}
             </fieldset>
           `).join("")}
         </section>
       </form>
     `,
     label: localize("Dialog.TriggerSubmit"),
+    // Closing the editor is a cancel, not an error.
+    rejectClose: false,
     render: (dialogHtml) => {
       applyDialogTheme(dialogHtml);
       configureTriggerDialog(dialogHtml);
+      guardTriggerDialogSubmit(dialogHtml);
     },
-    callback: (dialogHtml) => ({
-      name: dialogHtml.find('input[name="triggerName"]').val()?.trim() ?? "",
-      description: dialogHtml.find('input[name="triggerDescription"]').val()?.trim() ?? "",
-      category: dialogHtml.find('input[name="triggerCategory"]').val()?.trim() ?? "house-rule",
-      priority: Number(dialogHtml.find('input[name="triggerPriority"]').val() ?? 100),
-      executionMode: dialogHtml.find('select[name="triggerExecutionMode"]').val()?.trim() ?? "confirm-gm",
-      matchType: dialogHtml.find('select[name="triggerMatchType"]').val()?.trim() ?? "die-max",
-      faces: dialogHtml.find('input[name="triggerFaces"]').val()?.trim() ?? "",
-      value: dialogHtml.find('input[name="triggerValue"]').val()?.trim() ?? "",
-      threshold: dialogHtml.find('input[name="triggerThreshold"]').val()?.trim() ?? "",
-      minCount: dialogHtml.find('input[name="triggerMinCount"]').val()?.trim() ?? "1",
-      degree: dialogHtml.find('input[name="triggerDegree"]').val()?.trim() ?? "",
-      path: dialogHtml.find('input[name="triggerPath"]').val()?.trim() ?? "",
-      expression: dialogHtml.find('textarea[name="triggerExpression"]').val()?.trim() ?? "",
-      extraMatches: readExtraMatchesFromDialog(dialogHtml),
-      rollTypes: getDialogSelectValues(dialogHtml, 'select[name="triggerRollTypes"]', ["any"]),
-      actorTypes: getDialogSelectValues(dialogHtml, 'select[name="triggerActorTypes"]', ["any"]),
-      visibilityFilter: getDialogSelectValues(dialogHtml, 'select[name="triggerVisibilityFilter"]', ["any"]),
-      combatState: dialogHtml.find('select[name="triggerCombatState"]').val()?.trim() ?? "any",
-      includeScenes: getDialogSelectValues(dialogHtml, 'select[name="triggerIncludeScenes"]'),
-      includeActors: getDialogSelectValues(dialogHtml, 'select[name="triggerIncludeActors"]'),
-      includeItems: getDialogSelectValues(dialogHtml, 'select[name="triggerIncludeItems"]'),
-      playerOnly: Boolean(dialogHtml.find('input[name="triggerPlayerOnly"]').prop("checked")),
-      gmOnly: Boolean(dialogHtml.find('input[name="triggerGmOnly"]').prop("checked")),
-      actions: Array.from({ length: MAX_ACTION_SLOTS }, (_value, index) => ({
-        type: dialogHtml.find(`select[name="triggerActionType${index}"]`).val()?.trim() ?? "none",
-        visibility: dialogHtml.find(`select[name="triggerActionVisibility${index}"]`).val()?.trim() ?? "public",
-        template: dialogHtml.find(`input[name="triggerChatTemplate${index}"]`).val() ?? "",
-        tables: dialogHtml.find(`select[name="triggerTables${index}"]`).val() ?? "",
-        macro: dialogHtml.find(`select[name="triggerMacro${index}"]`).val() ?? "",
-        journal: dialogHtml.find(`select[name="triggerJournal${index}"]`).val() ?? ""
-      }))
-    })
+    callback: (dialogHtml) => readTriggerDialog(dialogHtml)
   });
 
   const name = String(result?.name ?? "").trim();
@@ -1385,14 +1605,90 @@ async function promptTriggerData(trigger = null, duplicate = false) {
       includeActors: normalizeCommaList(result.includeActors),
       includeItems: normalizeCommaList(result.includeItems),
       playerOnly: Boolean(result.playerOnly),
-      gmOnly: Boolean(result.gmOnly)
+      gmOnly: Boolean(result.gmOnly),
+      users: current.filters.users
     },
     actions,
     source: "user"
   });
 }
 
+// Reads the editor form. Invalid sound, effect, resource, image or formula actions throw: the V1 dialog then shows
+// the message as an error notification and stays open, so nothing typed is lost.
+function readTriggerDialog(dialogHtml) {
+  const rawActions = Array.from({ length: MAX_ACTION_SLOTS }, (_value, index) => ({
+    type: dialogHtml.find(`select[name="triggerActionType${index}"]`).val()?.trim() ?? "none",
+    visibility: dialogHtml.find(`select[name="triggerActionVisibility${index}"]`).val()?.trim() ?? "public",
+    template: dialogHtml.find(`input[name="triggerChatTemplate${index}"]`).val() ?? "",
+    tables: dialogHtml.find(`select[name="triggerTables${index}"]`).val() ?? "",
+    macro: dialogHtml.find(`select[name="triggerMacro${index}"]`).val() ?? "",
+    journal: dialogHtml.find(`select[name="triggerJournal${index}"]`).val() ?? "",
+    ...readExtendedActionFields(dialogHtml, index)
+  }));
+
+  const errors = validateEditorActions(rawActions);
+  if (errors.length) throw new Error(errors.join(" "));
+
+  return {
+    name: dialogHtml.find('input[name="triggerName"]').val()?.trim() ?? "",
+    description: dialogHtml.find('input[name="triggerDescription"]').val()?.trim() ?? "",
+    category: dialogHtml.find('input[name="triggerCategory"]').val()?.trim() ?? "house-rule",
+    priority: Number(dialogHtml.find('input[name="triggerPriority"]').val() ?? 100),
+    executionMode: dialogHtml.find('select[name="triggerExecutionMode"]').val()?.trim() ?? "confirm-gm",
+    matchType: dialogHtml.find('select[name="triggerMatchType"]').val()?.trim() ?? "die-max",
+    faces: dialogHtml.find('input[name="triggerFaces"]').val()?.trim() ?? "",
+    value: dialogHtml.find('input[name="triggerValue"]').val()?.trim() ?? "",
+    threshold: dialogHtml.find('input[name="triggerThreshold"]').val()?.trim() ?? "",
+    minCount: dialogHtml.find('input[name="triggerMinCount"]').val()?.trim() ?? "1",
+    degree: dialogHtml.find('input[name="triggerDegree"]').val()?.trim() ?? "",
+    path: dialogHtml.find('input[name="triggerPath"]').val()?.trim() ?? "",
+    expression: dialogHtml.find('textarea[name="triggerExpression"]').val()?.trim() ?? "",
+    extraMatches: readExtraMatchesFromDialog(dialogHtml),
+    rollTypes: getDialogSelectValues(dialogHtml, 'select[name="triggerRollTypes"]', ["any"]),
+    actorTypes: getDialogSelectValues(dialogHtml, 'select[name="triggerActorTypes"]', ["any"]),
+    visibilityFilter: getDialogSelectValues(dialogHtml, 'select[name="triggerVisibilityFilter"]', ["any"]),
+    combatState: dialogHtml.find('select[name="triggerCombatState"]').val()?.trim() ?? "any",
+    includeScenes: getDialogSelectValues(dialogHtml, 'select[name="triggerIncludeScenes"]'),
+    includeActors: getDialogSelectValues(dialogHtml, 'select[name="triggerIncludeActors"]'),
+    includeItems: getDialogSelectValues(dialogHtml, 'select[name="triggerIncludeItems"]'),
+    playerOnly: Boolean(dialogHtml.find('input[name="triggerPlayerOnly"]').prop("checked")),
+    gmOnly: Boolean(dialogHtml.find('input[name="triggerGmOnly"]').prop("checked")),
+    actions: rawActions
+  };
+}
+
+// The V1 dialog only stays open when its callback throws, and then logs the error as uncaught. The editor checks the
+// form first, before the dialog's own button and Enter handlers run: invalid input shows the message and the dialog
+// stays open. readTriggerDialog still throws as a fallback.
+function guardTriggerDialogSubmit(dialogHtml, notify = (message) => globalThis.ui?.notifications?.error?.(message)) {
+  const root = resolveDialogRoot(dialogHtml);
+  const app = root?.closest?.(".app, .window-app, .dialog") ?? root;
+  if (!app?.addEventListener) return false;
+
+  const blockInvalid = (event) => {
+    try {
+      readTriggerDialog(dialogHtml);
+      return;
+    } catch (error) {
+      notify(error?.message ?? String(error));
+    }
+    event.preventDefault?.();
+    event.stopPropagation?.();
+  };
+
+  app.addEventListener("click", (event) => {
+    if (event.target?.closest?.(".dialog-button")) blockInvalid(event);
+  }, true);
+  app.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || event.target?.tagName === "TEXTAREA") return;
+    blockInvalid(event);
+  });
+  return true;
+}
+
+// Only GMs manage triggers (world settings). Players get nothing, also through the module API.
 export async function openTriggerManager() {
+  if (!game.user?.isGM) return null;
   await ensureModuleTranslationsLoaded();
   if (!managerApp) managerApp = new SRTTriggerManager();
   managerApp.options ??= {};
@@ -1413,6 +1709,11 @@ export async function openTriggerManager() {
   }
 
   return managerApp;
+}
+
+// The bench names conditions with the same wording as the trigger cards.
+export function openTriggerTestBench() {
+  return openTestBench({ describeCondition: describeMatch });
 }
 
 export async function toggleTriggerManager() {
@@ -1447,6 +1748,7 @@ function getManagerTemplateStrings() {
     export: localize("Manager.Export"),
     import: localize("Manager.Import"),
     create: localize("Manager.Create"),
+    testBench: localize("Manager.TestBench"),
     execution: localize("Manager.Execution"),
     priority: localize("Manager.Priority"),
     match: localize("Manager.Match"),
@@ -1490,13 +1792,13 @@ export class SRTTriggerManager extends FormApplication {
   }
 
   getData() {
+    const runtime = getRuntimeOptions();
     const triggers = getAllTriggers()
       .map((trigger) => presentTrigger(trigger))
       .sort((left, right) => Number(right.priority) - Number(left.priority) || left.name.localeCompare(right.name, game.i18n.lang, { sensitivity: "base" }));
-    const profiles = getProfileStore()
+    const profiles = getVisibleProfiles(getProfileStore(), runtime.showInternalPresets)
       .map((profile) => presentProfile(profile))
       .sort((left, right) => left.name.localeCompare(right.name, game.i18n.lang, { sensitivity: "base" }));
-    const runtime = getRuntimeOptions();
 
     return {
       strings: getManagerTemplateStrings(),
@@ -1524,6 +1826,10 @@ export class SRTTriggerManager extends FormApplication {
 
     root.querySelector('[data-action="create-trigger"]')?.addEventListener("click", () => {
       void this.#onCreate();
+    });
+
+    root.querySelector('[data-action="open-test-bench"]')?.addEventListener("click", () => {
+      void openTriggerTestBench();
     });
 
     root.querySelector('[data-action="export-triggers"]')?.addEventListener("click", () => {
@@ -1612,9 +1918,10 @@ export class SRTTriggerManager extends FormApplication {
   async #onDelete(triggerId) {
     const existing = findTriggerById(triggerId);
     if (!existing) return;
-    const confirmed = await Dialog.confirm({
-      title: localize("Dialog.DeleteTitle"),
-      content: `<p>${escapeHtml(format("Dialog.DeleteContent", { name: existing.name }))}</p>`
+    const confirmed = await foundry.applications.api.DialogV2.confirm({
+      window: { title: localize("Dialog.DeleteTitle") },
+      content: `<p>${escapeHtml(format("Dialog.DeleteContent", { name: existing.name }))}</p>`,
+      rejectClose: false
     });
     if (!confirmed) return;
     await removeTrigger(triggerId);
@@ -1692,6 +1999,18 @@ export const __test__ = {
   ACTOR_TYPE_CHOICES,
   COMBAT_STATE_CHOICES,
   ACTION_FIELD_VISIBILITY,
+  EFFECT_TARGET_CHOICES,
+  RESOURCE_OPERATION_CHOICES,
+  validateEditorAction,
+  validateEditorActions,
+  getStatusEffectChoices,
+  renderExtendedActionFields,
+  readExtendedActionFields,
+  readTriggerDialog,
+  guardTriggerDialogSubmit,
+  configureFilePickerButtons,
+  openFilePickerFor,
+  getActionSummary,
   MATCH_FIELD_VISIBILITY,
   MATCH_INPUT_FIELDS,
   DEFAULT_EXTRA_MATCH,
@@ -1761,8 +2080,10 @@ export const __test__ = {
   findTriggerById,
   presentTrigger,
   presentProfile,
+  getVisibleProfiles,
   getManagerTemplateStrings,
   promptTriggerData,
+  getDefaultExecutionMode,
   applyManagerTheme,
   resetManagerApp() {
     managerApp = null;

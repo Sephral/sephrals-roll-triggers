@@ -41,7 +41,7 @@ globalThis.ChatMessage = {
   }
 };
 
-const { isActiveGmClient, RollTriggerService } = await import("../scripts/roll-trigger-service.js");
+const { exceedsActionLimit, getMatchActionCost, hasNothingToRun, isActiveGmClient, RELAY_CLEANUP_DELAY_MS, RollTriggerService } = await import("../scripts/roll-trigger-service.js");
 
 function createService() {
   return new RollTriggerService({
@@ -442,4 +442,125 @@ test("processChatMessage never runs more actions than the per-message limit", as
 
   // "b" would need two more actions after "a" and is skipped. "c" fills the limit, the second roll adds nothing.
   assert.deepEqual(ChatMessage.created.map((data) => data.content), ["A", "C"]);
+});
+
+test("the action limit helpers charge one slot per action and nothing for chat buttons", () => {
+  assert.equal(getMatchActionCost({ actions: [] }), 1);
+  assert.equal(getMatchActionCost({ actions: [{}, {}, {}] }), 3);
+  assert.equal(exceedsActionLimit({ executionMode: "automatic", actions: [{}, {}] }, 2, 3), true);
+  assert.equal(exceedsActionLimit({ executionMode: "automatic", actions: [{}] }, 2, 3), false);
+  assert.equal(exceedsActionLimit({ executionMode: "chat-button", actions: [{}, {}, {}, {}] }, 3, 3), false);
+  assert.equal(exceedsActionLimit({ executionMode: "disabled", actions: [{}, {}] }, 3, 3), false);
+});
+
+test("a chat button clicked twice before the first run finishes runs only once", async () => {
+  ChatMessage.created.length = 0;
+  const previousUser = game.user;
+  game.user = { id: "player-1", isGM: false };
+  const service = createService();
+  const message = {
+    id: "message-double",
+    getFlag() {
+      return [{
+        triggerId: "trigger-1",
+        trigger: { id: "trigger-1", name: "Trigger", executionMode: "chat-button" },
+        event: { total: 20, rollType: "attack" },
+        actions: [],
+        executed: false
+      }];
+    }
+  };
+
+  const [first, second] = await Promise.all([
+    service.executeDeferredTrigger(message, "trigger-1"),
+    service.executeDeferredTrigger(message, "trigger-1")
+  ]);
+
+  assert.deepEqual(first, { queued: true, mode: "chat-button" });
+  assert.deepEqual(second, { skipped: true, reason: "running" });
+  assert.equal(ChatMessage.created.length, 1);
+  assert.equal(service.runningDeferred.size, 0);
+  game.user = previousUser;
+});
+
+test("the active GM removes a relay request once handled, accepted or rejected", async () => {
+  const service = createService();
+  service.relayCleanupDelay = 0;
+  game.messages._messages.set("message-2", { id: "message-2", _source: { author: "player-1" }, speaker: {} });
+  service.executeDeferredTrigger = async () => {};
+  const withDelete = (relay) => {
+    relay.deleted = 0;
+    relay.id = `relay-${Math.random()}`;
+    game.messages._messages.set(relay.id, relay);
+    relay.delete = async () => {
+      relay.deleted += 1;
+    };
+    return relay;
+  };
+
+  game.user = { id: "gm-1", isGM: true };
+  const accepted = withDelete(createRelay("player-1"));
+  const rejected = withDelete(createRelay("player-2"));
+  await service.handleDeferredRequestMessage(accepted);
+  await service.handleDeferredRequestMessage(rejected);
+  assert.equal(accepted.deleted, 1);
+  assert.equal(rejected.deleted, 1);
+
+  game.user = { id: "gm-2", isGM: true };
+  const ignored = withDelete(createRelay("player-1"));
+  await service.handleDeferredRequestMessage(ignored);
+  assert.equal(ignored.deleted, 0);
+});
+
+test("relay cleanup waits for the notification animation and skips messages that are already gone", async () => {
+  const service = createService();
+  assert.equal(service.relayCleanupDelay, RELAY_CLEANUP_DELAY_MS);
+  const timers = [];
+  const originalSetTimeout = globalThis.setTimeout;
+  globalThis.setTimeout = (callback, delay) => timers.push({ callback, delay });
+  try {
+    let deleted = 0;
+    const relay = { id: "relay-late", delete: async () => { deleted += 1; } };
+    game.messages._messages.set(relay.id, relay);
+    service.scheduleRelayCleanup(relay);
+    assert.equal(deleted, 0);
+    assert.equal(timers[0].delay, RELAY_CLEANUP_DELAY_MS);
+    await timers[0].callback();
+    assert.equal(deleted, 1);
+
+    const gone = { id: "relay-gone", delete: async () => { deleted += 1; } };
+    service.scheduleRelayCleanup(gone);
+    await timers[1].callback();
+    assert.equal(deleted, 1);
+  } finally {
+    globalThis.setTimeout = originalSetTimeout;
+  }
+});
+
+test("a trigger without actions asks nothing, stores no button and only the whisper log still reports it", async () => {
+  game.user = { id: "gm-1", isGM: true };
+  ChatMessage.created.length = 0;
+  const message = createRollMessage("message-empty");
+  const events = [createRollEventStub(0, 6)];
+  const triggers = [
+    createSixTrigger({ id: "ask", executionMode: "confirm-gm", actions: [] }),
+    createSixTrigger({ id: "button", executionMode: "chat-button", actions: [] }),
+    createSixTrigger({ id: "log", name: "Log", executionMode: "gm-whisper-log", actions: [] })
+  ];
+  const originalDialog = globalThis.Dialog;
+  let asked = 0;
+  globalThis.Dialog = { async confirm() { asked += 1; return true; } };
+  try {
+    await createProcessingService({ events, triggers }).processChatMessage(message);
+  } finally {
+    globalThis.Dialog = originalDialog;
+  }
+
+  assert.equal(asked, 0);
+  assert.equal(message.flags["sephrals-roll-triggers"].deferredMatches, undefined);
+  assert.equal(ChatMessage.created.length, 1);
+  assert.match(ChatMessage.created[0].content, /Log/);
+  assert.equal(hasNothingToRun({ executionMode: "automatic", actions: [] }), true);
+  assert.equal(hasNothingToRun({ executionMode: "automatic", actions: [{ type: "gm-note" }] }), false);
+  assert.equal(hasNothingToRun({ executionMode: "gm-whisper-log", actions: [] }), false);
 });

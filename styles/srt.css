@@ -1050,3 +1050,186 @@
     font-size: 0.84rem;
   }
 }
+/* File path fields with a browse button (sound and image actions). */
+.srt-trigger-dialog .srt-file-field {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.srt-trigger-dialog .srt-file-field > input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.srt-trigger-dialog .srt-file-picker {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 2rem;
+  cursor: pointer;
+}
+
+/* Test bench window. The content reuses the manager look (.srt-app, .srt-panel, .srt-card). */
+.srt-bench-window .window-content {
+  padding: 0;
+  overflow: hidden;
+}
+
+.srt-app.srt-bench {
+  overflow: auto;
+}
+
+.srt-bench-form .form-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.srt-bench-form .form-group > label {
+  flex: 0 0 9rem;
+  font-weight: 600;
+}
+
+.srt-bench-form .form-group > input,
+.srt-bench-form .form-group > select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.srt-bench-form .srt-dialog-field--stacked {
+  display: block;
+}
+
+.srt-bench-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem 0.9rem;
+}
+
+.srt-bench-grid .form-group > label {
+  flex-basis: 7.5rem;
+}
+
+.srt-bench-check > input {
+  flex: 0 0 auto;
+}
+
+.srt-bench-dice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.srt-bench-die {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  font-size: 0.75rem;
+}
+
+.srt-bench-die input {
+  width: 4.2rem;
+  text-align: center;
+}
+
+.srt-bench-note {
+  margin: 0.2rem 0;
+  font-size: 0.78rem;
+  color: var(--srt-muted, #6f655d);
+}
+
+.srt-bench-note.is-warning {
+  color: var(--srt-rose, #8c3e47);
+  font-weight: 600;
+}
+
+.srt-bench-toolbar {
+  justify-content: flex-end;
+}
+
+/* .srt-app is a scrolling flex column here, so its children keep their natural height. */
+.srt-app.srt-bench > .srt-panel,
+.srt-app.srt-bench > [data-srt-bench-results] {
+  flex: 0 0 auto;
+}
+
+.srt-bench-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 1rem;
+  font-size: 0.82rem;
+}
+
+.srt-bench-results .srt-card-list {
+  overflow: visible;
+}
+
+.srt-bench-card.is-off,
+.srt-bench-card.is-stopped {
+  opacity: 0.72;
+}
+
+.srt-bench-card.is-match {
+  border-color: rgba(45, 119, 83, 0.35);
+}
+
+.srt-bench-conditions,
+.srt-bench-reasons {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+  font-size: 0.8rem;
+}
+
+.srt-bench-conditions li {
+  display: flex;
+  gap: 0.4rem;
+  align-items: baseline;
+}
+
+.srt-bench-conditions li.is-passed i {
+  color: var(--srt-green, #2d7753);
+}
+
+.srt-bench-conditions li.is-failed i {
+  color: var(--srt-rose, #8c3e47);
+}
+
+.srt-bench-reasons li {
+  color: var(--srt-rose, #8c3e47);
+}
+
+.srt-bench-run {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-top: 0.45rem;
+  border-top: 1px dashed var(--srt-line, rgba(73, 49, 32, 0.12));
+}
+
+.srt-bench-run .srt-inline-action[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.srt-app[data-ui-theme="foundry"] .srt-bench-note {
+  color: #b9b3aa;
+}
+
+.srt-app[data-ui-theme="foundry"] .srt-bench-note.is-warning,
+.srt-app[data-ui-theme="foundry"] .srt-bench-reasons li,
+.srt-app[data-ui-theme="foundry"] .srt-bench-conditions li.is-failed i {
+  color: #efaaaa;
+}
+
+.srt-app[data-ui-theme="foundry"] .srt-bench-conditions li.is-passed i {
+  color: #8fd0a1;
+}
+
+@media (max-width: 700px) {
+  .srt-bench-grid {
+    grid-template-columns: 1fr;
+  }
+}

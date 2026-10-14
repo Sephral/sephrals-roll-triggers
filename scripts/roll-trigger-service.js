@@ -11,12 +11,38 @@ export function isActiveGmClient() {
   return Boolean(activeGM) && activeGM.id === game.user.id;
 }
 
+// A match costs one action slot per configured action (at least one). Chat button matches run later and disabled
+// ones never, so both cost nothing when the message is processed. Shared by the chat processing and the test bench.
+// Relay requests are removed a few seconds after the active GM handled them. v14 animates a chat notification for
+// every new message on the GMs and the author, and that animation fails when the message is already gone.
+export const RELAY_CLEANUP_DELAY_MS = 5000;
+
+export function getMatchActionCost(match) {
+  return Math.max(match?.actions?.length ?? 0, 1);
+}
+
+// A trigger without actions (for example a fresh starter profile trigger) has nothing to run: no confirmation
+// dialog, no chat button. Only the GM whisper log, which never runs actions, still reports the match.
+export function hasNothingToRun(match) {
+  const actions = Array.isArray(match?.actions) ? match.actions : [];
+  return actions.length === 0 && match?.executionMode !== "gm-whisper-log";
+}
+
+export function exceedsActionLimit(match, executedActions, maxActions) {
+  if (match?.executionMode === "chat-button" || match?.executionMode === "disabled") return false;
+  return executedActions + getMatchActionCost(match) > maxActions;
+}
+
 export class RollTriggerService {
   constructor({ adapter, settings }) {
     this.adapter = adapter;
     this.settings = settings;
     this.renderer = new TriggerChatCardRenderer();
     this.processedMessages = new Set();
+    // Chat button runs in progress on this client (message id and trigger id), so a double click or two relayed
+    // requests for the same button run the actions only once.
+    this.runningDeferred = new Set();
+    this.relayCleanupDelay = RELAY_CLEANUP_DELAY_MS;
   }
 
   log(label, payload) {
@@ -65,10 +91,11 @@ export class RollTriggerService {
         const triggerKey = match.trigger.id ?? match.trigger;
         if (matchedTriggers.has(triggerKey) && !allowsRepeatedMatches(match.trigger)) continue;
         matchedTriggers.add(triggerKey);
+        if (hasNothingToRun(match)) continue;
 
         // Skip a trigger whose actions would exceed the limit. Chat-button matches run later and cost nothing now.
-        const actionCount = Math.max(match.actions?.length ?? 0, 1);
-        if (match.executionMode !== "chat-button" && executedActions + actionCount > maxActions) {
+        const actionCount = getMatchActionCost(match);
+        if (exceedsActionLimit(match, executedActions, maxActions)) {
           this.log("Action limit reached", { triggerId: match.trigger.id, messageId: message.id, rollIndex: event.rollIndex });
           continue;
         }
@@ -134,6 +161,31 @@ export class RollTriggerService {
     if (!request) return false;
     if (!isActiveGmClient()) return true;
 
+    try {
+      await this.#handleDeferredRequest(message, request);
+    } finally {
+      this.scheduleRelayCleanup(message);
+    }
+    return true;
+  }
+
+  // The request is only a hidden transport message. Once the active GM handled it, it is removed, so relay requests
+  // do not pile up in the chat log (and in its exports).
+  scheduleRelayCleanup(message) {
+    const remove = async () => {
+      if (message?.id && game.messages?.get?.(message.id) !== message) return;
+      try {
+        await message.delete?.();
+      } catch (error) {
+        this.log("Relay request cleanup failed", error);
+      }
+    };
+    if (!this.relayCleanupDelay) return remove();
+    globalThis.setTimeout?.(() => void remove(), this.relayCleanupDelay);
+    return null;
+  }
+
+  async #handleDeferredRequest(message, request) {
     const sourceMessage = game.messages?.get?.(request.messageId) ?? null;
     if (!sourceMessage) return true;
 
@@ -188,6 +240,17 @@ export class RollTriggerService {
   async executeDeferredTrigger(message, triggerId, context = {}) {
     if (!message || !triggerId) return { skipped: true, reason: "missing-data" };
 
+    const runKey = `${message.id}:${triggerId}`;
+    if (this.runningDeferred.has(runKey)) return { skipped: true, reason: "running" };
+    this.runningDeferred.add(runKey);
+    try {
+      return await this.#runDeferredTrigger(message, triggerId, context);
+    } finally {
+      this.runningDeferred.delete(runKey);
+    }
+  }
+
+  async #runDeferredTrigger(message, triggerId, context) {
     const deferredEntries = message.getFlag?.(MODULE_ID, "deferredMatches") ?? [];
     const deferredEntry = deferredEntries.find((entry) => entry?.triggerId === triggerId && entry.executed !== true);
     if (!deferredEntry) return { skipped: true, reason: "missing-trigger" };

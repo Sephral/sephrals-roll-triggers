@@ -39,6 +39,10 @@
             </button>
             <input type="file" class="srt-import-input" data-action="import-file" accept="application/json,.json" hidden>
           {{/if}}
+          <button type="button" class="srt-inline-action" data-action="open-test-bench">
+            <i class="fas fa-flask" aria-hidden="true"></i>
+            <span>{{strings.testBench}}</span>
+          </button>
           <button type="button" class="srt-inline-action is-primary" data-action="create-trigger">
             <i class="fas fa-plus" aria-hidden="true"></i>
             <span>{{strings.create}}</span>

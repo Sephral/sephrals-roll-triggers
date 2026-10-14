@@ -633,7 +633,8 @@ test("normalizeTrigger keeps advanced filter settings", () => {
       includeActors: ["actor-a"],
       includeItems: ["item-a"],
       playerOnly: true,
-      gmOnly: false
+      gmOnly: false,
+      users: ["user-a"]
     }
   });
 
@@ -647,8 +648,16 @@ test("normalizeTrigger keeps advanced filter settings", () => {
     includeActors: ["actor-a"],
     includeItems: ["item-a"],
     playerOnly: true,
-    gmOnly: false
+    gmOnly: false,
+    users: ["user-a"]
   });
+});
+
+test("internal presets are hidden when the setting is off, imported profiles stay", () => {
+  const profiles = [{ id: "a", source: "internal-preset" }, { id: "b", source: "imported" }, { id: "c" }];
+  assert.deepEqual(__test__.getVisibleProfiles(profiles, true).map((profile) => profile.id), ["a", "b", "c"]);
+  assert.deepEqual(__test__.getVisibleProfiles(profiles, false).map((profile) => profile.id), ["b", "c"]);
+  assert.deepEqual(__test__.getVisibleProfiles(null, false), []);
 });
 
 test("describeFilters includes advanced filter hints", () => {
