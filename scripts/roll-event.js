@@ -100,6 +100,20 @@ function getAssociatedItem(message) {
   return flags?.dnd5e?.item ?? flags?.pf2e?.item ?? flags?.swade?.item ?? null;
 }
 
+// dnd5e names the item of a card only by type, id and uuid. The name comes from the item itself.
+function getAssociatedItemName(item, actor) {
+  if (!item) return null;
+  if (item.name) return String(item.name);
+  const owned = item.id ? actor?.items?.get?.(item.id) : null;
+  if (owned?.name) return String(owned.name);
+  if (!item.uuid || typeof globalThis.fromUuidSync !== "function") return null;
+  try {
+    return globalThis.fromUuidSync(item.uuid, { strict: false })?.name ?? null;
+  } catch {
+    return null;
+  }
+}
+
 const SUCCESS_DEGREES_BY_INDEX = ["critical-failure", "failure", "success", "critical-success"];
 
 // The module compares success degrees in kebab-case ("critical-success"). PF2e stores the outcome camelCase in
@@ -178,7 +192,8 @@ function getMessageUserData(message) {
   return { user, userId };
 }
 
-export function createRollEvent(message, roll, rollIndex, adapterId, extra = {}) {
+// rolls: all rolls of the message as the adapter reads them (Ready Set Roll keeps them outside message.rolls).
+export function createRollEvent(message, roll, rollIndex, adapterId, extra = {}, rolls = null) {
   const flattenedTerms = [];
   flattenTerms(roll?.terms ?? [], flattenedTerms);
 
@@ -211,7 +226,7 @@ export function createRollEvent(message, roll, rollIndex, adapterId, extra = {})
     tokenId: token?.id ?? null,
     item,
     itemId: item?.id ?? item?._id ?? null,
-    itemName: item?.name ?? null,
+    itemName: getAssociatedItemName(item, actor),
     user,
     userId,
     visibility: extra.visibility ?? normalizeVisibility(message),
@@ -227,6 +242,6 @@ export function createRollEvent(message, roll, rollIndex, adapterId, extra = {})
     flags: message?.flags ?? {},
     rawMessage: message,
     rawRoll: roll,
-    rawRolls: message?.rolls ?? []
+    rawRolls: rolls ?? message?.rolls ?? []
   };
 }

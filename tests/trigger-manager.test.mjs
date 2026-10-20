@@ -619,6 +619,29 @@ test("calculateTriggerDialogResize follows mouse delta with compact minimums", (
   );
 });
 
+test("the item filter lists the items of the chosen actors before the sidebar items", () => {
+  const previousActors = game.actors;
+  const items = [{ id: "sword-1", name: "Longsword" }, { id: "fist-1", name: "Unarmed Strike" }];
+  game.actors = [
+    { id: "actor-a", name: "Actor A", uuid: "Actor.actor-a" },
+    { id: "syr", name: "Syr Jonabread", uuid: "Actor.syr", items: Object.assign([...items], { get: (id) => items.find((item) => item.id === id) }) }
+  ];
+  try {
+    assert.deepEqual(Object.entries(__test__.getItemSelectChoices(["syr"], [])), [
+      ["sword-1", "Syr Jonabread: Longsword"],
+      ["fist-1", "Syr Jonabread: Unarmed Strike"],
+      ["item-a", "Item A (item-a)"]
+    ]);
+    // Without the actor the sidebar items remain, a picked item of the actor keeps its name.
+    assert.deepEqual(Object.entries(__test__.getItemSelectChoices([], ["sword-1"])), [
+      ["item-a", "Item A (item-a)"],
+      ["sword-1", "Syr Jonabread: Longsword"]
+    ]);
+  } finally {
+    game.actors = previousActors;
+  }
+});
+
 test("normalizeTrigger keeps advanced filter settings", () => {
   const trigger = __test__.normalizeTrigger({
     id: "filtered",

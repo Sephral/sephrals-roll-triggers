@@ -149,6 +149,12 @@ Hooks.on("createChatMessage", async (message) => {
   await service.processChatMessage(message);
 });
 
+// Ready Set Roll and MidiQOL post a card first and add its rolls by an update.
+Hooks.on("updateChatMessage", async (message, changed) => {
+  if (!service || !service.adapter?.rollsChanged?.(changed)) return;
+  await service.processChatMessage(message);
+});
+
 Hooks.on("renderChatMessageHTML", (message, html) => {
   if (!service) return;
   service.renderChatMessage(message, html);

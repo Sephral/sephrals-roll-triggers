@@ -64,10 +64,18 @@ function matchActor(event, filters) {
   return true;
 }
 
+// An item on an actor is matched by its id. An item from the sidebar stands for every copy of it: dnd5e gives an
+// item a new id when it is dropped on an actor, the name stays.
 function matchItem(event, filters) {
   const included = normalizeArray(filters.includeItems);
-  if (included.length && !included.includes(event.itemId)) return false;
-  return true;
+  if (!included.length || included.includes(event.itemId)) return true;
+  const itemName = normalizeItemName(event.itemName);
+  if (!itemName) return false;
+  return included.some((value) => normalizeItemName(globalThis.game?.items?.get?.(value)?.name ?? value) === itemName);
+}
+
+function normalizeItemName(value) {
+  return String(value ?? "").trim().toLowerCase();
 }
 
 function matchDiceCountByFaces(event, exactDiceCountByFaces) {

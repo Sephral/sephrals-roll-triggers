@@ -38,7 +38,8 @@ export class RollTriggerService {
     this.adapter = adapter;
     this.settings = settings;
     this.renderer = new TriggerChatCardRenderer();
-    this.processedMessages = new Set();
+    // Per message: how many of its rolls were checked, which triggers fired and how many actions ran.
+    this.processedMessages = new Map();
     // Chat button runs in progress on this client (message id and trigger id), so a double click or two relayed
     // requests for the same button run the actions only once.
     this.runningDeferred = new Set();
@@ -61,20 +62,29 @@ export class RollTriggerService {
     // A roll table card posted by a trigger must not trigger again (no loops on the table's own roll).
     if (message.getFlag?.(MODULE_ID, TRIGGER_OUTPUT_FLAG)) return;
 
+    // Ready Set Roll and MidiQOL add rolls to a card after creating it. Every call checks only the rolls that came
+    // since the last one. The stored flag holds the number of checked rolls (true from older versions: all of them).
     const messageKey = `${message.id}:${message.uuid ?? ""}`;
-    if (this.processedMessages.has(messageKey)) return;
-
-    const stored = message.getFlag?.(this.settings.moduleId, "processed");
-    if (stored && this.settings.storeTriggeredInChat) return;
+    const state = this.processedMessages.get(messageKey) ?? { rollCount: 0, matchedTriggers: new Set(), executedActions: 0 };
+    const stored = this.settings.storeTriggeredInChat ? message.getFlag?.(this.settings.moduleId, "processed") : null;
+    if (stored === true) return;
+    const fromIndex = Math.max(state.rollCount, Number(stored) || 0);
 
     const triggers = this.getActiveTriggers();
     if (!triggers.length) return;
 
-    const events = this.adapter.extractRollEvents(message);
+    const allEvents = this.adapter.extractRollEvents(message);
+    const rollCount = allEvents.reduce((count, event) => Math.max(count, (Number(event.rollIndex) || 0) + 1), 0);
+    if (rollCount <= fromIndex) return;
+    // Taken before any await, so a second update arriving meanwhile does not check the same rolls again.
+    state.rollCount = rollCount;
+    this.processedMessages.set(messageKey, state);
+
+    const events = allEvents.filter((event) => (Number(event.rollIndex) || 0) >= fromIndex);
     const deferredMatches = [];
-    const matchedTriggers = new Set();
+    const matchedTriggers = state.matchedTriggers;
     const maxActions = this.settings.maxActionsPerMessage;
-    let executedActions = 0;
+    let executedActions = state.executedActions;
 
     for (const event of events) {
       if (executedActions >= maxActions) break;
@@ -118,13 +128,13 @@ export class RollTriggerService {
       }
     }
 
-    this.processedMessages.add(messageKey);
+    state.executedActions = executedActions;
 
     if (deferredMatches.length) {
       await storeDeferredMatches(message, deferredMatches);
     }
     if (this.settings.storeTriggeredInChat) {
-      await message.setFlag(this.settings.moduleId, "processed", true);
+      await message.setFlag(this.settings.moduleId, "processed", rollCount);
     }
   }
 

@@ -97,6 +97,27 @@ test("matchTrigger respects advanced filters and default execution mode", () => 
   assert.equal(matchTrigger(trigger, createEvent({ actorId: "actor-1", itemId: "item-2", diceResults: event.diceResults })), null);
 });
 
+test("the item filter takes an actor's item by id and a sidebar item for every copy with its name", () => {
+  const trigger = {
+    id: "proc",
+    enabled: true,
+    filters: { includeItems: ["owned-sword", "world-axe"] },
+    match: { type: "die-max", faces: 20, minCount: 1 },
+    actions: [{ type: "chat-message", template: "Proc" }]
+  };
+  const previousGame = globalThis.game;
+  globalThis.game = { ...(previousGame ?? {}), items: { get: (id) => (id === "world-axe" ? { id, name: "Handaxe" } : null) } };
+  try {
+    assert.ok(matchTrigger(trigger, createEvent({ itemId: "owned-sword", itemName: "Longsword" })));
+    // dnd5e gives a dropped item a new id: the copy of the sidebar Handaxe matches by its name.
+    assert.ok(matchTrigger(trigger, createEvent({ itemId: "copy-of-axe", itemName: "handaxe" })));
+    assert.equal(matchTrigger(trigger, createEvent({ itemId: "other", itemName: "Longsword" })), null);
+    assert.equal(matchTrigger(trigger, createEvent({ itemId: null, itemName: null })), null);
+  } finally {
+    globalThis.game = previousGame;
+  }
+});
+
 test("matchTrigger respects player-gm filters and private-roll override blocking", () => {
   const trigger = {
     id: "private",

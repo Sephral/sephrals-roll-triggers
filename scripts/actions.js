@@ -692,8 +692,10 @@ export async function executeMatch(match, options = {}) {
   return { skipped: false, mode, results, storedOnMessage: options.storeTriggeredInChat === true };
 }
 
+// Rolls added to a card later bring their own chat buttons, the earlier ones stay.
 export async function storeDeferredMatches(message, matches) {
-  const payload = matches.map((match) => serializeDeferredMatch(match));
+  const existing = message.getFlag?.(MODULE_ID, "deferredMatches");
+  const payload = [...(Array.isArray(existing) ? existing : []), ...matches.map((match) => serializeDeferredMatch(match))];
 
   await message.setFlag(MODULE_ID, "deferredMatches", payload);
 }

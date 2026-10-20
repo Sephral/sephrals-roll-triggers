@@ -45,6 +45,8 @@ Triggers with a higher priority are checked first. If several triggers match the
 
 A trigger fires at most once per chat message, even when the message holds several rolls, for example a damage card with several damage parts. The first matching roll counts.
 
+Some modules post a card first and add its rolls a moment later, for example Ready Set Roll and MidiQOL. Roll Triggers checks such rolls when they arrive, each roll once.
+
 ## Match types
 
 * Die shows a specific value
@@ -79,7 +81,7 @@ Filters limit when a matching roll may fire the trigger:
 * Actor type: PC, NPC, vehicle
 * Roll visibility: public, GM or private, blind, self
 * Combat: in combat or out of combat
-* Scenes, actors and items you pick
+* Scenes, actors and items you pick. Once actors are picked, the item list shows their items first, for example *Aria: Longsword*. An item from the sidebar also counts for items with the same name on any actor, because an item dropped on an actor gets a new id
 * Rolls by players only or by the GM only
 
 In D&D 5e, ability and tool checks count as *check*, death saves as *save*, hit dice as *healing*, and hit point and utility rolls as *utility*. Initiative rolls from the combat tracker count as *initiative* in every system.

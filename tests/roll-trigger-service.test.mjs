@@ -299,7 +299,8 @@ test("processChatMessage evaluates custom-js triggers for player-authored rolls 
 
   assert.equal(ChatMessage.created.length, 1);
   assert.equal(ChatMessage.created[0].content, "Investigator can mark 22 for improvement");
-  assert.equal(message._processed, true);
+  // The flag holds the number of rolls checked.
+  assert.equal(message._processed, 1);
 });
 
 function createRollMessage(id) {
@@ -412,6 +413,37 @@ test("processChatMessage runs a trigger once per message unless it allows multip
   ChatMessage.created.length = 0;
   await createProcessingService({ events, triggers: [createSixTrigger({ oncePerMessage: false })] }).processChatMessage(createRollMessage("message-each"));
   assert.equal(ChatMessage.created.length, 2);
+});
+
+test("rolls added to a card later are checked once each, and a trigger still fires once per message", async () => {
+  game.user = { id: "gm-1", isGM: true };
+  ChatMessage.created.length = 0;
+  const message = createRollMessage("message-later");
+  const events = [];
+  const service = createProcessingService({ events, triggers: [createSixTrigger()] });
+
+  // Ready Set Roll posts the card without rolls and adds them by an update.
+  await service.processChatMessage(message);
+  assert.equal(message.flags["sephrals-roll-triggers"], undefined);
+  events.push(createRollEventStub(0, 3));
+  await service.processChatMessage(message);
+  assert.equal(ChatMessage.created.length, 0);
+  assert.equal(message.flags["sephrals-roll-triggers"].processed, 1);
+  events.push(createRollEventStub(1, 6));
+  await service.processChatMessage(message);
+  await service.processChatMessage(message);
+  assert.deepEqual(ChatMessage.created.map((data) => data.content), ["Six on roll 6"]);
+  events.push(createRollEventStub(2, 6));
+  await service.processChatMessage(message);
+  assert.equal(ChatMessage.created.length, 1);
+  assert.equal(message.flags["sephrals-roll-triggers"].processed, 3);
+
+  // After a reload the stored count keeps the checked rolls from firing again, older messages store true.
+  await createProcessingService({ events, triggers: [createSixTrigger({ oncePerMessage: false })] }).processChatMessage(message);
+  const legacy = createRollMessage("message-legacy");
+  legacy.flags["sephrals-roll-triggers"] = { processed: true };
+  await createProcessingService({ events, triggers: [createSixTrigger()] }).processChatMessage(legacy);
+  assert.equal(ChatMessage.created.length, 1);
 });
 
 test("processChatMessage stores one chat button per trigger and message", async () => {

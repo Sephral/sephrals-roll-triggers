@@ -220,6 +220,51 @@ function getReferenceSelectChoices(referenceType, selectedValues = []) {
   return choices;
 }
 
+// Items for the item filter: first the items of the chosen actors, shown as "Aria: Longsword" and stored by their own
+// id, then the items of the sidebar, which also count for copies with the same name on any actor.
+function getItemSelectChoices(actorIds = [], selectedValues = []) {
+  const ownedChoices = [];
+  for (const actorId of normalizeCommaList(actorIds)) {
+    const actor = resolveReferenceEntry("actor", actorId);
+    for (const item of getCollectionEntries(actor?.items)) {
+      if (!item?.id) continue;
+      ownedChoices.push({ id: String(item.id), label: `${String(actor.name ?? actorId)}: ${String(item.name ?? item.id)}` });
+    }
+  }
+  ownedChoices.sort((left, right) => left.label.localeCompare(right.label, game.i18n?.lang));
+
+  const choices = Object.fromEntries(ownedChoices.map((entry) => [entry.id, entry.label]));
+  for (const [id, label] of Object.entries(getReferenceSelectChoices("item"))) choices[id] ??= label;
+  for (const value of normalizeCommaList(selectedValues)) {
+    if (value && !choices[value]) choices[value] = formatOwnedItemValue(value);
+  }
+  return choices;
+}
+
+// A stored item id that is no sidebar item: the item of an actor, as long as that actor still has it.
+function formatOwnedItemValue(value) {
+  const formatted = formatReferenceValue("item", value);
+  if (formatted !== value) return formatted;
+  for (const actor of getCollectionEntries(getReferenceCollection("actor"))) {
+    const item = actor?.items?.get?.(value) ?? getCollectionEntries(actor?.items).find((entry) => entry?.id === value);
+    if (item) return `${String(actor.name ?? actor.id)}: ${String(item.name ?? value)}`;
+  }
+  return value;
+}
+
+// The item list follows the chosen actors. Picked items stay picked.
+function configureItemFilterChoices(root) {
+  const actorSelect = root.querySelector?.('select[name="triggerIncludeActors"]');
+  const itemSelect = root.querySelector?.('select[name="triggerIncludeItems"]');
+  if (!actorSelect || !itemSelect) return;
+  actorSelect.addEventListener("change", () => {
+    const actorIds = Array.from(actorSelect.selectedOptions ?? []).map((option) => option.value);
+    const selectedItems = Array.from(itemSelect.selectedOptions ?? []).map((option) => option.value);
+    itemSelect.innerHTML = buildSelectOptions(getItemSelectChoices(actorIds, selectedItems), selectedItems);
+    updateMultiSelectSummary(root, itemSelect.name);
+  });
+}
+
 function getSelectedReferenceValue(values) {
   return normalizeCommaList(values)[0] ?? "";
 }
@@ -664,6 +709,7 @@ function configureTriggerDialog(dialogHtml) {
   for (const multiSelect of root.querySelectorAll('select[multiple]')) {
     multiSelect.addEventListener("change", () => updateMultiSelectSummary(root, multiSelect.name));
   }
+  configureItemFilterChoices(root);
   applyFilterDetailState(root);
   updateAllMultiSelectSummaries(root);
 
@@ -1512,7 +1558,7 @@ async function promptTriggerData(trigger = null, duplicate = false) {
           <div class="form-group srt-dialog-field--stacked" data-srt-filter-detail="item">
             ${renderDialogLabel("Dialog.TriggerIncludeItems", "DialogHint.TriggerIncludeItems")}
             <div class="srt-multiselect-summary" data-srt-multiselect-summary="triggerIncludeItems" data-srt-empty-label="-">-</div>
-            <select name="triggerIncludeItems" multiple size="4">${buildSelectOptions(getReferenceSelectChoices("item", current.filters.includeItems ?? []), current.filters.includeItems ?? [])}</select>
+            <select name="triggerIncludeItems" multiple size="4">${buildSelectOptions(getItemSelectChoices(current.filters.includeActors ?? [], current.filters.includeItems ?? []), current.filters.includeItems ?? [])}</select>
           </div>
           <div class="form-group">
             ${renderDialogLabel("Dialog.TriggerPlayerOnly", "DialogHint.TriggerPlayerOnly")}
@@ -1986,6 +2032,7 @@ export class SRTTriggerManager extends FormApplication {
 }
 
 export const __test__ = {
+  getItemSelectChoices,
   EXPORT_FORMAT_VERSION,
   PROFILE_EXPORT_FORMAT_VERSION,
   MAX_ACTION_SLOTS,
