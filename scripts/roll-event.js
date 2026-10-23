@@ -95,9 +95,11 @@ function getSpeakerToken(message) {
   return game.scenes.get(sceneId)?.tokens?.get(tokenId) ?? null;
 }
 
+// dnd5e 6 keeps the item of a roll card in the message's system data (system.item) instead of flags.dnd5e.item.
 function getAssociatedItem(message) {
   const flags = message?.flags ?? {};
-  return flags?.dnd5e?.item ?? flags?.pf2e?.item ?? flags?.swade?.item ?? null;
+  const dnd5eItem = DND5E_ROLL_MESSAGES.has(message?.type) ? message?.system?.item : null;
+  return flags?.dnd5e?.item ?? dnd5eItem ?? flags?.pf2e?.item ?? flags?.swade?.item ?? null;
 }
 
 // dnd5e names the item of a card only by type, id and uuid. The name comes from the item itself.
@@ -145,8 +147,26 @@ const DND5E_ROLL_TYPES = {
   death: "save",
   hitDie: "healing",
   hitPoints: "utility",
+  recharge: "utility",
   generic: "utility"
 };
+
+// dnd5e 6 gives every roll card a message type with typed system data instead of flags.dnd5e.roll, and copies the
+// message type into roll.options.rollType: a skill check says "check", a death save "save". The system data tells
+// the kind (system.skill, system.tool, system.type).
+const DND5E_ROLL_MESSAGES = new Set(["attack", "check", "save", "damage", "healing", "generic", "hitDie", "hitPoints", "recharge"]);
+
+// The kinds a dnd5e 6 roll of the type check or save can be.
+const DND5E_REFINED_TYPES = { check: ["ability", "skill", "tool", "initiative"], save: ["save", "death"] };
+
+function getDnd5eMessageRollType(message) {
+  const type = message?.type;
+  const system = message?.system ?? {};
+  if (!DND5E_ROLL_MESSAGES.has(type)) return null;
+  if (type === "check") return system.skill ? "skill" : system.tool ? "tool" : system.type === "initiative" ? "initiative" : "ability";
+  if (type === "save") return system.type === "death" ? "death" : "save";
+  return type;
+}
 
 function isInitiativeMessage(message) {
   const flags = message?.flags ?? {};
@@ -157,13 +177,16 @@ function isInitiativeMessage(message) {
 // only for rolls built through its own workflow. The flag goes before roll.options.type, which is the damage type
 // ("fire") on a dnd5e DamageRoll. Core initiative rolls carry no type, only the core.initiativeRoll flag.
 function inferRollType(message, roll, systemId) {
-  const rollType = roll?.options?.rollType ?? message?.flags?.dnd5e?.roll?.type ?? null;
+  const ownType = roll?.options?.rollType ?? null;
+  const messageType = message?.flags?.dnd5e?.roll?.type ?? (systemId === "dnd5e" ? getDnd5eMessageRollType(message) : null);
+  const rollType = DND5E_REFINED_TYPES[ownType]?.includes(messageType) ? messageType : ownType ?? messageType;
   if (rollType != null) return systemId === "dnd5e" ? DND5E_ROLL_TYPES[rollType] ?? rollType : rollType;
   if (isInitiativeMessage(message)) return "initiative";
   return roll?.options?.type ?? "any";
 }
 
-// dnd5e stores the targets of a roll as actor UUIDs (flags.dnd5e.targets), PF2e a single target token or actor
+// dnd5e stores the targets of a roll as actor UUIDs (flags.dnd5e.targets, in dnd5e 6 system.targets with actor and
+// token UUIDs), PF2e a single target token or actor
 // (flags.pf2e.context.target). Other systems store nothing, then the roller's current targets count. Those are synced
 // to every client, so the GM client sees them too. Token targets become token document UUIDs.
 export function getRollTargetUuids(message, user) {
@@ -175,6 +198,8 @@ export function getRollTargetUuids(message, user) {
   };
 
   for (const target of Array.isArray(flags.dnd5e?.targets) ? flags.dnd5e.targets : []) add(target?.uuid);
+  const systemTargets = DND5E_ROLL_MESSAGES.has(message?.type) ? message?.system?.targets : null;
+  for (const target of Array.isArray(systemTargets) ? systemTargets : []) add(target?.actor ?? target?.token);
   const pf2eTarget = flags.pf2e?.context?.target;
   if (pf2eTarget) add(pf2eTarget.token ?? pf2eTarget.actor);
   if (uuids.length) return uuids;

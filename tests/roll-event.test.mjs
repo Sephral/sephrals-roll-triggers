@@ -476,3 +476,45 @@ test("createRollEvent detects a self roll from the message author (core speaker 
   assert.equal(createRollEvent({ ...base, _source: { author: "player" }, whisper: [] }, roll, 0, "generic").visibility, "public");
   assert.equal(createRollEvent({ ...base, _source: { author: "player" }, whisper: ["gm"], blind: true }, roll, 0, "generic").visibility, "blind");
 });
+
+test("createRollEvent reads the typed roll messages of dnd5e 6 (roll type, item and targets in system data)", () => {
+  setupGame("dnd5e");
+  const roll = (rollType) => ({
+    formula: "1d20 + 4",
+    total: 24,
+    options: rollType ? { rollType } : {},
+    terms: [new DiceTerm("1d20", 20, 20, [{ result: 20, active: true, discarded: false }])]
+  });
+  const typed = (type, system, current) => ({ ...createMessage({}, current), type, system });
+  const rollTypeFor = (type, system, rollType) => {
+    const current = roll(rollType);
+    return createRollEvent(typed(type, system, current), current, 0, "generic").rollType;
+  };
+
+  // dnd5e 6 copies the message type into roll.options.rollType, the system data tells the kind.
+  assert.equal(rollTypeFor("check", { ability: "dex", skill: "ste" }, "check"), "skill");
+  assert.equal(rollTypeFor("check", { ability: "dex", tool: "thief" }, "check"), "check");
+  assert.equal(rollTypeFor("check", { ability: "str" }, "check"), "check");
+  assert.equal(rollTypeFor("check", { ability: "dex", type: "initiative" }), "initiative");
+  assert.equal(rollTypeFor("save", { type: "death" }, "save"), "save");
+  assert.equal(rollTypeFor("save", { ability: "con", type: "concentration" }, "save"), "save");
+  assert.equal(rollTypeFor("attack", {}, "attack"), "attack");
+  assert.equal(rollTypeFor("hitDie", {}, "hitDie"), "healing");
+  assert.equal(rollTypeFor("recharge", {}), "utility");
+
+  const current = roll("attack");
+  const message = typed("attack", {
+    item: { id: "sword", type: "weapon", uuid: "Actor.hero.Item.sword" },
+    targets: [{ actor: "Actor.orc", token: "Scene.s1.Token.orc", name: "Orc" }, { actor: null, token: "Scene.s1.Token.t2", name: "Ghost" }]
+  }, current);
+  message.getAssociatedActor = () => ({ items: { get: (id) => (id === "sword" ? { name: "Longsword" } : null) } });
+  const event = createRollEvent(message, current, 0, "generic");
+  assert.equal(event.itemId, "sword");
+  assert.equal(event.itemName, "Longsword");
+  assert.deepEqual(event.targetUuids, ["Actor.orc", "Scene.s1.Token.t2"]);
+
+  // Another system's message with system data stays untouched.
+  setupGame("pf2e");
+  const other = roll("check");
+  assert.equal(createRollEvent(typed("check", { skill: "ste" }, other), other, 0, "generic").rollType, "check");
+});
