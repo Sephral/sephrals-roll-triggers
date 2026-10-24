@@ -1,6 +1,6 @@
 {
   "SRT.Settings.Enabled.Name": "Enable roll triggers",
-  "SRT.Settings.Enabled.Hint": "Enable Sephral's Roll Triggers for this world.",
+  "SRT.Settings.Enabled.Hint": "Enable Sephral’s Roll Triggers for this world.",
   "SRT.Settings.Language.Name": "Module language",
   "SRT.Settings.Language.Hint": "Choose whether this module follows Foundry's language or uses a fixed German or English UI.",
   "SRT.Settings.Theme.Name": "Manager theme",
@@ -34,7 +34,7 @@
   "SRT.Chat.TriggerButton": "Run trigger",
   "SRT.Chat.TriggerReady": "Trigger available",
   "SRT.Chat.TriggerReference": "Triggered by",
-  "SRT.Manager.Title": "Sephral's Roll Triggers",
+  "SRT.Manager.Title": "Sephral’s Roll Triggers",
   "SRT.Manager.Eyebrow": "Roll Automation",
   "SRT.Manager.Summary": "Build lightweight house-rule reactions for standout rolls without replacing your system's own resolution flow.",
   "SRT.Manager.WorldLabel": "World",
@@ -337,5 +337,18 @@
   "SRT.TestBench.Mode.ConfirmGm": "Asks the GM first",
   "SRT.TestBench.Mode.ChatButton": "Shows a button on the chat message",
   "SRT.TestBench.Mode.GmWhisperLog": "Only tells the GMs, no actions run",
-  "SRT.TestBench.Mode.Disabled": "Execution mode is disabled, nothing runs"
+  "SRT.TestBench.Mode.Disabled": "Execution mode is disabled, nothing runs",
+  "SRT.Manager.Settings": "Settings",
+  "SRT.SelfTest.Title": "Roll Triggers self test",
+  "SRT.SelfTest.Run": "Run self test",
+  "SRT.SelfTest.Hint": "Checks the stored triggers and profiles, runs a test roll through every trigger and checks the manager window. Run it after an update of Foundry or the system.",
+  "SRT.SelfTest.Passed": "Self test passed: {checks} checks, {triggers} triggers.",
+  "SRT.SelfTest.Problems": "Self test: {problems} of {checks} checks failed. See the chat message.",
+  "SRT.SelfTest.Version": "{id} {current} (verified {tested})",
+  "SRT.SelfTest.NewVersions": "Roll Triggers was verified with older versions than {versions}. Run the self test in the module settings to check that everything still works.",
+  "SRT.SelfTest.Texts": "The texts of the module are missing.",
+  "SRT.SelfTest.Stores": "The stored triggers or profiles could not be read.",
+  "SRT.SelfTest.TestRoll": "A test roll could not be checked against the triggers.",
+  "SRT.SelfTest.Template": "The manager template of the module is missing.",
+  "SRT.SelfTest.Disabled": "Roll Triggers is switched off in the module settings, so no trigger fires."
 }

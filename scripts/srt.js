@@ -1,7 +1,8 @@
 import { GenericRollAdapter } from "./adapters/generic-adapter.js";
 import { RollTriggerService } from "./roll-trigger-service.js";
 import { getInternalProfiles } from "./default-presets.js";
-import { openTriggerManager, openTriggerTestBench, SRTSettingsMenu, toggleTriggerManager } from "./trigger-manager.js";
+import { openTriggerManager, openTriggerTestBench, SRTSelfTestMenu, SRTSettingsMenu, toggleTriggerManager } from "./trigger-manager.js";
+import { noticeNewVersions, runSelfTest } from "./selftest.js";
 import {
   createSettingsFacade,
   ensureModuleTranslationsLoaded,
@@ -9,6 +10,7 @@ import {
   MODULE_ID,
   getProfileStore,
   registerManagerMenu,
+  registerSelfTestMenu,
   registerSettings,
   SETTINGS
 } from "./settings.js";
@@ -48,6 +50,7 @@ async function ensureProfileStoreInitialized() {
 Hooks.once("init", () => {
   registerSettings();
   registerManagerMenu(SRTSettingsMenu);
+  registerSelfTestMenu(SRTSelfTestMenu);
 });
 
 Hooks.once("ready", async () => {
@@ -65,9 +68,11 @@ Hooks.once("ready", async () => {
     module.api = {
       openManager: openTriggerManager,
       toggleManager: toggleTriggerManager,
-      openTestBench: openTriggerTestBench
+      openTestBench: openTriggerTestBench,
+      runSelfTest
     };
   }
+  noticeNewVersions();
 });
 
 Hooks.on("getSceneControlButtons", (controls) => {
@@ -156,6 +161,12 @@ Hooks.on("updateChatMessage", async (message, changed) => {
 });
 
 Hooks.on("renderChatMessageHTML", (message, html) => {
+  if (!service) return;
+  service.renderChatMessage(message, html);
+});
+
+// dnd5e 6 fills its roll cards after the core hook and drops what was added there, so the buttons follow its hook too.
+Hooks.on("dnd5e.renderChatMessage", (message, html) => {
   if (!service) return;
   service.renderChatMessage(message, html);
 });

@@ -6,8 +6,10 @@ import {
   getRuntimeOptions,
   getThemePreference,
   getTriggerStore,
+  hasOwnSettings,
   localize,
   MODULE_ID,
+  openModuleSettings,
   saveProfileStore,
   saveTriggerStore
 } from "./settings.js";
@@ -1193,7 +1195,7 @@ function normalizeProfile(profile, fallback = {}) {
   };
 }
 
-function normalizeTrigger(trigger, fallback = {}) {
+export function normalizeTrigger(trigger, fallback = {}) {
   const match = trigger?.match ?? fallback.match ?? { type: "die-max", faces: 20, minCount: 1 };
   const normalizedActions = normalizeActionList(
     trigger?.actions,
@@ -1781,6 +1783,16 @@ export class SRTSettingsMenu extends FormApplication {
   async _updateObject() {}
 }
 
+// The menu button which runs the self-test instead of opening a window.
+export class SRTSelfTestMenu extends FormApplication {
+  render(force, options) {
+    if (game.user?.isGM) void import("./selftest.js").then(({ runSelfTest }) => runSelfTest());
+    return this;
+  }
+
+  async _updateObject() {}
+}
+
 function getManagerTemplateStrings() {
   return {
     eyebrow: localize("Manager.Eyebrow"),
@@ -1835,6 +1847,13 @@ export class SRTTriggerManager extends FormApplication {
   async close(options = {}) {
     if (managerApp === this) managerApp = null;
     return super.close(options);
+  }
+
+  // A gear in the title bar opens the module settings.
+  _getHeaderButtons() {
+    const buttons = super._getHeaderButtons();
+    if (hasOwnSettings()) buttons.unshift({ label: localize("Manager.Settings"), class: "srt-settings", icon: "fa-solid fa-gear", onclick: () => void openModuleSettings() });
+    return buttons;
   }
 
   getData() {

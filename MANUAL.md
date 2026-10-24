@@ -31,6 +31,9 @@ The manager has two areas:
 * **Store triggered matches on chat messages:** remembers which messages already fired, so a trigger never fires twice for the same message
 * **Respect private rolls:** private, self and blind rolls stay private. Public actions of such rolls are whispered to the GM instead, and actions of a blind roll never go to players
 * **Maximum actions per chat message:** limits how many actions one message can start. A trigger whose actions would go over the limit is skipped
+* **Run self test:** checks the stored triggers and profiles, runs a test roll through every trigger and checks the manager window. Run it after every update of Foundry or the system. When a newer version than the tested one is installed, the GM gets a notice once. Macros call it as `game.modules.get("sephrals-roll-triggers").api.runSelfTest()`
+
+The gear in the title bar of the manager and the test bench opens these settings.
 
 ## Trigger basics
 

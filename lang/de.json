@@ -1,6 +1,6 @@
 {
   "SRT.Settings.Enabled.Name": "Roll-Trigger aktivieren",
-  "SRT.Settings.Enabled.Hint": "Aktiviert Sephral's Roll Triggers für diese Welt.",
+  "SRT.Settings.Enabled.Hint": "Aktiviert Sephral’s Roll Triggers für diese Welt.",
   "SRT.Settings.Language.Name": "Modulsprache",
   "SRT.Settings.Language.Hint": "Wählt, ob dieses Modul der Foundry-Sprache folgt oder fest Deutsch beziehungsweise Englisch verwendet.",
   "SRT.Settings.Theme.Name": "Manager-Design",
@@ -34,7 +34,7 @@
   "SRT.Chat.TriggerButton": "Trigger ausführen",
   "SRT.Chat.TriggerReady": "Trigger verfügbar",
   "SRT.Chat.TriggerReference": "Ausgelöst durch",
-  "SRT.Manager.Title": "Sephral's Roll Triggers",
+  "SRT.Manager.Title": "Sephral’s Roll Triggers",
   "SRT.Manager.Eyebrow": "Wurf-Automatisierung",
   "SRT.Manager.Summary": "Erstelle Hausregel-Reaktionen für spezielle Würfe.",
   "SRT.Manager.WorldLabel": "Welt",
@@ -337,5 +337,18 @@
   "SRT.TestBench.Mode.ConfirmGm": "Fragt zuerst den GM",
   "SRT.TestBench.Mode.ChatButton": "Zeigt einen Button an der Chat-Nachricht",
   "SRT.TestBench.Mode.GmWhisperLog": "Informiert nur die GMs, es laufen keine Aktionen",
-  "SRT.TestBench.Mode.Disabled": "Ausführungsmodus ist deaktiviert, es läuft nichts"
+  "SRT.TestBench.Mode.Disabled": "Ausführungsmodus ist deaktiviert, es läuft nichts",
+  "SRT.Manager.Settings": "Einstellungen",
+  "SRT.SelfTest.Title": "Roll Triggers Selbsttest",
+  "SRT.SelfTest.Run": "Selbsttest starten",
+  "SRT.SelfTest.Hint": "Prüft die gespeicherten Trigger und Profile, schickt einen Testwurf durch alle Trigger und prüft das Verwaltungsfenster. Nach jedem Update von Foundry oder dem System ausführen.",
+  "SRT.SelfTest.Passed": "Selbsttest bestanden: {checks} Prüfungen, {triggers} Trigger.",
+  "SRT.SelfTest.Problems": "Selbsttest: {problems} von {checks} Prüfungen fehlgeschlagen. Details im Chat.",
+  "SRT.SelfTest.Version": "{id} {current} (geprüft {tested})",
+  "SRT.SelfTest.NewVersions": "Roll Triggers wurde mit älteren Versionen als {versions} geprüft. Der Selbsttest in den Moduleinstellungen zeigt, ob noch alles funktioniert.",
+  "SRT.SelfTest.Texts": "Die Texte des Moduls fehlen.",
+  "SRT.SelfTest.Stores": "Die gespeicherten Trigger oder Profile ließen sich nicht lesen.",
+  "SRT.SelfTest.TestRoll": "Ein Testwurf ließ sich nicht mit den Triggern prüfen.",
+  "SRT.SelfTest.Template": "Die Vorlage des Verwaltungsfensters fehlt.",
+  "SRT.SelfTest.Disabled": "Roll Triggers ist in den Moduleinstellungen ausgeschaltet, daher löst kein Trigger aus."
 }

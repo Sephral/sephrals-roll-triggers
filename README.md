@@ -14,11 +14,10 @@
 * **Make something happen:** post a chat message, roll on a table, run a macro, link a journal entry or send the GM a private note.
 * **Bring the moment to life:** play a sound, show an image, roll an extra die, knock someone prone or hand out inspiration and bennies.
 * **Test before you play:** try any roll on the test bench and see which triggers fire and why, without touching the chat.
-* **You stay in charge:** fire automatically, ask the GM first, or show a chat button and decide later.
+* **You stay in charge:** fire automatically, ask the GM first, or show a chat button and decide later. Roll Triggers never changes or rerolls a result, it only reacts.
 * **Only when it fits:** limit a trigger to a roll type, an actor, an item, a scene, combat or the player who rolled.
 * **Ready for your system:** starter profiles for D&D 5e, Pathfinder 2e, Call of Cthulhu, Daggerheart, DSA5, WFRP4e, Savage Worlds, Cyberpunk RED, Blades in the Dark, GURPS and more.
 * **Share your house rules:** export triggers and profiles and import them in another world.
-* **Fair dice:** Roll Triggers never changes or rerolls a result. It only reacts.
 
 ## Ideas for your table
 
@@ -40,7 +39,7 @@
 
 Search for **Roll Triggers** in Foundry's module browser or open the [package page](https://foundryvtt.com/packages/sephrals-roll-triggers).
 
-Foundry VTT v13 and v14 · any game system · English and German
+Foundry VTT 13 and 14 · any game system · English and German
 
 ## Learn more
 

@@ -2,7 +2,7 @@ import { describeAction, escapeHtml, executeMatch } from "./actions.js";
 import { GenericRollAdapter } from "./adapters/generic-adapter.js";
 import { FILTER_VISIBILITY_CHOICES, ROLL_TYPE_CHOICES, SUCCESS_DEGREE_CHOICES } from "./choices.js";
 import { exceedsActionLimit, getMatchActionCost, hasNothingToRun } from "./roll-trigger-service.js";
-import { createSettingsFacade, ensureModuleTranslationsLoaded, format, getThemePreference, localize, MODULE_ID } from "./settings.js";
+import { addSettingsGear, createSettingsFacade, ensureModuleTranslationsLoaded, format, getThemePreference, localize, MODULE_ID } from "./settings.js";
 import { simulateTriggers } from "./triggers.js";
 
 // The bench builds the same roll event as the chat processing (GenericRollAdapter and createRollEvent) and checks it
@@ -441,6 +441,12 @@ function getTestBenchClass() {
 
     get title() {
       return localize("TestBench.Title");
+    }
+
+    async _renderFrame(options) {
+      const frame = await super._renderFrame(options);
+      addSettingsGear(frame);
+      return frame;
     }
 
     async _prepareContext() {

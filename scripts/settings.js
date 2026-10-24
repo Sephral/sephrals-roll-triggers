@@ -25,7 +25,8 @@ export const SETTINGS = {
   RESPECT_PRIVATE_ROLLS: "respectPrivateRolls",
   MAX_ACTIONS_PER_MESSAGE: "maxActionsPerMessage",
   TRIGGERS: "triggers",
-  PROFILES: "profiles"
+  PROFILES: "profiles",
+  ACKNOWLEDGED_VERSIONS: "acknowledgedVersions"
 };
 
 const EXECUTION_MODE_CHOICES = {
@@ -180,6 +181,17 @@ export function registerManagerMenu(menuType) {
   });
 }
 
+export function registerSelfTestMenu(menuType) {
+  game.settings.registerMenu(MODULE_ID, "selfTest", {
+    name: localize("SelfTest.Title"),
+    label: localize("SelfTest.Run"),
+    hint: localize("SelfTest.Hint"),
+    icon: "fa-solid fa-stethoscope",
+    type: menuType,
+    restricted: true
+  });
+}
+
 export function registerSettings() {
   game.settings.register(MODULE_ID, UI_LANGUAGE_SETTING, {
     scope: "client",
@@ -251,6 +263,13 @@ export function registerSettings() {
     config: false,
     type: Object,
     default: getInternalProfiles()
+  });
+
+  game.settings.register(MODULE_ID, SETTINGS.ACKNOWLEDGED_VERSIONS, {
+    scope: "client",
+    config: false,
+    type: String,
+    default: ""
   });
 }
 
@@ -345,3 +364,41 @@ export const __test__ = {
   format,
   createSettingsFacade
 };
+
+// Whether the current user finds settings of this module in the settings dialog.
+export function hasOwnSettings() {
+  if (game.user?.isGM) return true;
+  return Array.from(game.settings.settings.values()).some((setting) => setting.namespace === MODULE_ID && setting.config && setting.scope !== "world");
+}
+
+// Opens Foundry's settings on the tab of this module.
+export async function openModuleSettings() {
+  const sheet = game.settings.sheet;
+  await sheet.render({ force: true });
+  try {
+    sheet.changeTab(MODULE_ID, "categories");
+  } catch (error) {
+    console.warn(`${MODULE_ID} | The settings have no tab for this module`, error);
+  }
+  sheet.bringToFront?.();
+}
+
+// Puts a gear into the title bar of a window frame that opens the module settings.
+export function addSettingsGear(frame) {
+  const header = frame?.querySelector(".window-header");
+  if (!header || header.querySelector(".srt-settings") || !hasOwnSettings()) return;
+  const label = localize("Manager.Settings");
+  const gear = document.createElement("button");
+  gear.type = "button";
+  gear.className = "header-control icon fa-solid fa-gear srt-settings";
+  gear.dataset.tooltip = label;
+  gear.setAttribute("aria-label", label);
+  gear.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    void openModuleSettings();
+  });
+  const anchor = header.querySelector("[data-action=toggleControls]") ?? header.querySelector("[data-action=close]");
+  if (anchor) anchor.before(gear);
+  else header.append(gear);
+}
