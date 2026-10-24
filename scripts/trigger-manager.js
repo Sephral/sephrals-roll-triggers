@@ -28,6 +28,7 @@ import {
 } from "./actions.js";
 import { FILTER_VISIBILITY_CHOICES, ROLL_TYPE_CHOICES } from "./choices.js";
 import { openTestBench } from "./roll-test-bench.js";
+import { countFeature, markUsed } from "./usage.mjs";
 
 let managerApp = null;
 const EXPORT_FORMAT_VERSION = 1;
@@ -1339,12 +1340,14 @@ function exportTriggers() {
   const payload = buildTriggerExportPayload();
   const filename = format("Export.FileName", { worldId: game.world?.id ?? "world" });
   foundry.utils.saveDataToFile(JSON.stringify(payload, null, 2), "application/json", filename);
+  countFeature(MODULE_ID, "fileExport");
 }
 
 function exportProfiles() {
   const payload = buildProfileExportPayload();
   const filename = format("Export.ProfileFileName", { worldId: game.world?.id ?? "world" });
   foundry.utils.saveDataToFile(JSON.stringify(payload, null, 2), "application/json", filename);
+  countFeature(MODULE_ID, "fileExport");
 }
 
 async function importTriggersFromFile(file) {
@@ -1737,6 +1740,7 @@ function guardTriggerDialogSubmit(dialogHtml, notify = (message) => globalThis.u
 // Only GMs manage triggers (world settings). Players get nothing, also through the module API.
 export async function openTriggerManager() {
   if (!game.user?.isGM) return null;
+  markUsed(MODULE_ID);
   await ensureModuleTranslationsLoaded();
   if (!managerApp) managerApp = new SRTTriggerManager();
   managerApp.options ??= {};
@@ -1761,6 +1765,7 @@ export async function openTriggerManager() {
 
 // The bench names conditions with the same wording as the trigger cards.
 export function openTriggerTestBench() {
+  countFeature(MODULE_ID, "testBench");
   return openTestBench({ describeCondition: describeMatch });
 }
 
@@ -1956,6 +1961,7 @@ export class SRTTriggerManager extends FormApplication {
     const trigger = await promptTriggerData();
     if (!trigger) return;
     const saved = await upsertTrigger(trigger);
+    countFeature(MODULE_ID, "triggerCreate");
     ui.notifications?.info(format("Notification.TriggerSaved", { name: saved.name }));
     this.render(true);
   }
@@ -1966,6 +1972,7 @@ export class SRTTriggerManager extends FormApplication {
     const updated = await promptTriggerData(existing, false);
     if (!updated) return;
     const saved = await upsertTrigger({ ...updated, id: existing.id });
+    countFeature(MODULE_ID, "triggerEdit");
     ui.notifications?.info(format("Notification.TriggerSaved", { name: saved.name }));
     this.render(true);
   }
@@ -1976,6 +1983,7 @@ export class SRTTriggerManager extends FormApplication {
     const duplicated = await promptTriggerData(existing, true);
     if (!duplicated) return;
     const saved = await upsertTrigger(duplicated);
+    countFeature(MODULE_ID, "triggerCreate");
     ui.notifications?.info(format("Notification.TriggerSaved", { name: saved.name }));
     this.render(true);
   }
@@ -2013,6 +2021,7 @@ export class SRTTriggerManager extends FormApplication {
     }
 
     await saveTriggerStore([...currentById.values()]);
+    countFeature(MODULE_ID, "profileImport");
     ui.notifications?.info(format("Notification.ProfileImported", { name: profile.name }));
     this.render(true);
   }
@@ -2024,6 +2033,7 @@ export class SRTTriggerManager extends FormApplication {
 
     try {
       await importTriggersFromFile(file);
+      countFeature(MODULE_ID, "fileImport");
       this.render(true);
     } catch (error) {
       ui.notifications?.error(error?.message ?? localize("Import.Invalid"));
@@ -2039,6 +2049,7 @@ export class SRTTriggerManager extends FormApplication {
 
     try {
       await importProfilesFromFile(file);
+      countFeature(MODULE_ID, "fileImport");
       this.render(true);
     } catch (error) {
       ui.notifications?.error(error?.message ?? localize("Import.InvalidProfiles"));

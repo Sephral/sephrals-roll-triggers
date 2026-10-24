@@ -2,6 +2,7 @@ import { executeMatch, hydrateDeferredMatch, markDeferredMatchExecuted, storeDef
 import { canUserRunTriggerButtons, TriggerChatCardRenderer } from "./chat-card.js";
 import { allowsRepeatedMatches, collectMatches } from "./triggers.js";
 import { localize, MODULE_ID } from "./settings.js";
+import { countFeature } from "./usage.mjs";
 
 // createChatMessage fires on every connected client. Only the designated active GM (game.users.activeGM, v13 and v14)
 // processes rolls and relay requests, so a second GM or an Assistant GM does not repeat actions or confirm dialogs.
@@ -128,6 +129,8 @@ export class RollTriggerService {
       }
     }
 
+    // One count per roll message that set off a trigger, not per trigger or action.
+    if (executedActions > state.executedActions || deferredMatches.length) countFeature(MODULE_ID, "triggerFired");
     state.executedActions = executedActions;
 
     if (deferredMatches.length) {
@@ -289,6 +292,7 @@ export class RollTriggerService {
         await markDeferredMatchExecuted(message, triggerId);
         context.button?.setAttribute?.("disabled", "disabled");
         context.button?.classList?.add?.("is-disabled");
+        countFeature(MODULE_ID, "chatButtonRun");
       }
 
       return result;

@@ -14,6 +14,7 @@ import {
   registerSettings,
   SETTINGS
 } from "./settings.js";
+import { registerUsage } from "./usage.mjs";
 
 let service = null;
 const DEFAULT_SCENE_CONTROL = "tokens";
@@ -51,6 +52,10 @@ Hooks.once("init", () => {
   registerSettings();
   registerManagerMenu(SRTSettingsMenu);
   registerSelfTestMenu(SRTSelfTestMenu);
+  registerUsage(MODULE_ID, {
+    features: ["triggerFired", "chatButtonRun", "triggerCreate", "triggerEdit", "profileImport", "fileImport", "fileExport", "testBench"],
+    settings: [SETTINGS.UI_THEME, SETTINGS.DEFAULT_EXECUTION_MODE, SETTINGS.ALLOW_PLAYER_BUTTONS]
+  });
 });
 
 Hooks.once("ready", async () => {
