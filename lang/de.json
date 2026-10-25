@@ -339,7 +339,7 @@
   "SRT.TestBench.Mode.GmWhisperLog": "Informiert nur die GMs, es laufen keine Aktionen",
   "SRT.TestBench.Mode.Disabled": "Ausführungsmodus ist deaktiviert, es läuft nichts",
   "SRT.Manager.Settings": "Einstellungen",
-  "SRT.SelfTest.Title": "Roll Triggers Selbsttest",
+  "SRT.SelfTest.Title": "Selbsttest von Roll Triggers",
   "SRT.SelfTest.Run": "Selbsttest starten",
   "SRT.SelfTest.Hint": "Prüft die gespeicherten Trigger und Profile, schickt einen Testwurf durch alle Trigger und prüft das Verwaltungsfenster. Nach jedem Update von Foundry oder dem System ausführen.",
   "SRT.SelfTest.Passed": "Selbsttest bestanden: {checks} Prüfungen, {triggers} Trigger.",
