@@ -1,4 +1,6 @@
 import { GenericRollAdapter } from "./adapters/generic-adapter.js";
+import { debugTrace, registerDebug } from "./debug.js";
+import { registerDebugMenu, saveDebugFile } from "./debug-file.mjs";
 import { RollTriggerService } from "./roll-trigger-service.js";
 import { getInternalProfiles } from "./default-presets.js";
 import { openTriggerManager, openTriggerTestBench, SRTSelfTestMenu, SRTSettingsMenu, toggleTriggerManager } from "./trigger-manager.js";
@@ -52,6 +54,8 @@ Hooks.once("init", () => {
   registerSettings();
   registerManagerMenu(SRTSettingsMenu);
   registerSelfTestMenu(SRTSelfTestMenu);
+  registerDebugMenu(MODULE_ID, { name: localize("Debug.Title"), label: localize("Debug.Save"), hint: localize("Debug.Hint") });
+  registerDebug(() => service);
   registerUsage(MODULE_ID, {
     features: ["triggerFired", "chatButtonRun", "triggerCreate", "triggerEdit", "profileImport", "fileImport", "fileExport", "testBench"],
     settings: [SETTINGS.UI_THEME, SETTINGS.DEFAULT_EXECUTION_MODE, SETTINGS.ALLOW_PLAYER_BUTTONS]
@@ -63,7 +67,8 @@ Hooks.once("ready", async () => {
   await ensureProfileStoreInitialized();
   service = new RollTriggerService({
     adapter: new GenericRollAdapter(),
-    settings: createSettingsFacade()
+    settings: createSettingsFacade(),
+    trace: debugTrace
   });
 
   scheduleChatHydration();
@@ -74,7 +79,9 @@ Hooks.once("ready", async () => {
       openManager: openTriggerManager,
       toggleManager: toggleTriggerManager,
       openTestBench: openTriggerTestBench,
-      runSelfTest
+      runSelfTest,
+      // One file for all of Sephral's modules, without a message id about their latest picture
+      saveDebugFile: (messageId) => saveDebugFile(messageId ?? null, { moduleId: MODULE_ID })
     };
   }
   noticeNewVersions();

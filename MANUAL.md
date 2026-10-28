@@ -32,8 +32,20 @@ The manager has two areas:
 * **Respect private rolls:** private, self and blind rolls stay private. Public actions of such rolls are whispered to the GM instead, and actions of a blind roll never go to players
 * **Maximum actions per chat message:** limits how many actions one message can start. A trigger whose actions would go over the limit is skipped
 * **Run self test:** checks the stored triggers and profiles, runs a test roll through every trigger and checks the manager window. Run it after every update of Foundry or the system. When a newer version than the tested one is installed, the GM gets a notice once. Macros call it as `game.modules.get("sephrals-roll-triggers").api.runSelfTest()`
+* **Save debug file:** saves a file for bug reports, see *Debug file*
 
 The gear in the title bar of the manager and the test bench opens these settings.
+
+## Debug file
+
+When a trigger does not fire as expected, a debug file shows what Roll Triggers saw. It is one file for all of Sephral’s modules in the world, and GMs save it in two places:
+
+* **Settings, Save debug file:** the latest 20 roll messages
+* **Chat, right click on a message, Save Debug File (Sephral’s Modules):** this one message
+
+The file holds the Foundry, system and module versions, the active modules, the settings of the modules, the active triggers, the stored data of the chat messages with their rolls, the roll events read from them, every active trigger checked against each roll (match, the filters that block it, the conditions that fail) and what the chat processing decided when the message came in, for example a skipped message because another GM is the active GM, or a trigger that already fired on this card. Those decisions are only known for messages that came in since the last reload. Macros save one with `game.modules.get("sephrals-roll-triggers").api.saveDebugFile(messageId)`, without a message id for the latest messages.
+
+The file contains chat text and whispers, check it before you share it.
 
 ## Usage statistics
 

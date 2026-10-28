@@ -35,9 +35,11 @@ export function exceedsActionLimit(match, executedActions, maxActions) {
 }
 
 export class RollTriggerService {
-  constructor({ adapter, settings }) {
+  constructor({ adapter, settings, trace = null }) {
     this.adapter = adapter;
     this.settings = settings;
+    // Recent decisions for debug files, recorded whether or not debug mode is on.
+    this.trace = trace;
     this.renderer = new TriggerChatCardRenderer();
     // Per message: how many of its rolls were checked, which triggers fired and how many actions ran.
     this.processedMessages = new Map();
@@ -52,31 +54,43 @@ export class RollTriggerService {
     console.debug(`[SRT] ${label}`, payload);
   }
 
+  record(event, data) {
+    this.trace?.add(event, data);
+  }
+
+  skip(message, reason, data = {}) {
+    this.record("skipped", { messageId: message?.id ?? null, reason, ...data });
+  }
+
   getActiveTriggers() {
     return (this.settings.getTriggers?.() ?? []).filter((trigger) => trigger?.enabled !== false);
   }
 
   async processChatMessage(message) {
+    // Other clients and plain text messages are not recorded, they would push the useful entries out of the trace
     if (!isActiveGmClient()) return;
-    if (!this.settings.enabled) return;
-    if (!this.adapter.supportsMessage(message)) return;
+    if (!this.settings.enabled) return this.skip(message, "disabled");
+    if (!this.adapter.supportsMessage(message)) {
+      if (message?.rolls?.length) this.skip(message, "unsupported");
+      return;
+    }
     // A roll table card posted by a trigger must not trigger again (no loops on the table's own roll).
-    if (message.getFlag?.(MODULE_ID, TRIGGER_OUTPUT_FLAG)) return;
+    if (message.getFlag?.(MODULE_ID, TRIGGER_OUTPUT_FLAG)) return this.skip(message, "trigger-output");
 
     // Ready Set Roll and MidiQOL add rolls to a card after creating it. Every call checks only the rolls that came
     // since the last one. The stored flag holds the number of checked rolls (true from older versions: all of them).
     const messageKey = `${message.id}:${message.uuid ?? ""}`;
     const state = this.processedMessages.get(messageKey) ?? { rollCount: 0, matchedTriggers: new Set(), executedActions: 0 };
     const stored = this.settings.storeTriggeredInChat ? message.getFlag?.(this.settings.moduleId, "processed") : null;
-    if (stored === true) return;
+    if (stored === true) return this.skip(message, "already-processed");
     const fromIndex = Math.max(state.rollCount, Number(stored) || 0);
 
     const triggers = this.getActiveTriggers();
-    if (!triggers.length) return;
+    if (!triggers.length) return this.skip(message, "no-active-triggers");
 
     const allEvents = this.adapter.extractRollEvents(message);
     const rollCount = allEvents.reduce((count, event) => Math.max(count, (Number(event.rollIndex) || 0) + 1), 0);
-    if (rollCount <= fromIndex) return;
+    if (rollCount <= fromIndex) return this.skip(message, "no-new-rolls", { rollCount, checkedRolls: fromIndex });
     // Taken before any await, so a second update arriving meanwhile does not check the same rolls again.
     state.rollCount = rollCount;
     this.processedMessages.set(messageKey, state);
@@ -88,7 +102,10 @@ export class RollTriggerService {
     let executedActions = state.executedActions;
 
     for (const event of events) {
-      if (executedActions >= maxActions) break;
+      if (executedActions >= maxActions) {
+        this.skip(message, "action-limit", { rollIndex: event.rollIndex, executedActions, maxActions });
+        break;
+      }
       this.log("Normalized roll event", event);
       const matches = collectMatches(triggers, event, {
         defaultExecutionMode: this.settings.defaultExecutionMode,
@@ -100,14 +117,22 @@ export class RollTriggerService {
 
         // A card with several rolls (for example several damage parts) runs each trigger once unless it opts out.
         const triggerKey = match.trigger.id ?? match.trigger;
-        if (matchedTriggers.has(triggerKey) && !allowsRepeatedMatches(match.trigger)) continue;
+        const matchData = { messageId: message.id, triggerId: match.trigger.id ?? null, triggerName: match.trigger.name ?? "", executionMode: match.executionMode, rollIndex: event.rollIndex };
+        if (matchedTriggers.has(triggerKey) && !allowsRepeatedMatches(match.trigger)) {
+          this.record("matched", { ...matchData, result: "once-per-message" });
+          continue;
+        }
         matchedTriggers.add(triggerKey);
-        if (hasNothingToRun(match)) continue;
+        if (hasNothingToRun(match)) {
+          this.record("matched", { ...matchData, result: "nothing-to-run" });
+          continue;
+        }
 
         // Skip a trigger whose actions would exceed the limit. Chat-button matches run later and cost nothing now.
         const actionCount = getMatchActionCost(match);
         if (exceedsActionLimit(match, executedActions, maxActions)) {
           this.log("Action limit reached", { triggerId: match.trigger.id, messageId: message.id, rollIndex: event.rollIndex });
+          this.record("matched", { ...matchData, result: "action-limit", executedActions, maxActions });
           continue;
         }
 
@@ -123,12 +148,15 @@ export class RollTriggerService {
           } else if (!result?.skipped) {
             executedActions += actionCount;
           }
+          this.record("matched", { ...matchData, result: result?.deferred ? "deferred" : result?.skipped ? "skipped" : "executed", reason: result?.reason ?? null });
         } catch (error) {
+          this.record("matched", { ...matchData, result: "error", error: String(error?.stack ?? error) });
           console.error("[SRT] Trigger action failed", error, match);
         }
       }
     }
 
+    this.record("processed", { messageId: message.id, rollCount, checkedFrom: fromIndex, matchedTriggers: Array.from(matchedTriggers).map(String), executedActions, deferred: deferredMatches.length });
     // One count per roll message that set off a trigger, not per trigger or action.
     if (executedActions > state.executedActions || deferredMatches.length) countFeature(MODULE_ID, "triggerFired");
     state.executedActions = executedActions;

@@ -1,10 +1,10 @@
 {
   "name": "sephrals-roll-triggers",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "node --check scripts/srt.js && node --check scripts/settings.js && node --check scripts/trigger-manager.js && node --check scripts/roll-trigger-service.js && node --check scripts/roll-event.js && node --check scripts/triggers.js && node --check scripts/actions.js && node --check scripts/chat-card.js && node --check scripts/default-presets.js && node --check scripts/choices.js && node --check scripts/roll-test-bench.js && node --check scripts/adapters/generic-adapter.js",
+    "check": "node --check scripts/srt.js && node --check scripts/settings.js && node --check scripts/trigger-manager.js && node --check scripts/roll-trigger-service.js && node --check scripts/roll-event.js && node --check scripts/triggers.js && node --check scripts/actions.js && node --check scripts/chat-card.js && node --check scripts/default-presets.js && node --check scripts/choices.js && node --check scripts/roll-test-bench.js && node --check scripts/adapters/generic-adapter.js && node --check scripts/debug.js && node --check scripts/debug-file.mjs",
     "check:manifest": "node build/validate-manifest.mjs",
     "test": "node --test",
     "test:coverage": "node --test --experimental-test-coverage",

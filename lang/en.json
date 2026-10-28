@@ -350,5 +350,10 @@
   "SRT.SelfTest.Stores": "The stored triggers or profiles could not be read.",
   "SRT.SelfTest.TestRoll": "A test roll could not be checked against the triggers.",
   "SRT.SelfTest.Template": "The manager template of the module is missing.",
-  "SRT.SelfTest.Disabled": "Roll Triggers is switched off in the module settings, so no trigger fires."
+  "SRT.SelfTest.Disabled": "Roll Triggers is switched off in the module settings, so no trigger fires.",
+  "SRT.Debug.Title": "Debug file",
+  "SRT.Debug.Save": "Save debug file",
+  "SRT.Debug.Hint": "Saves one file for bug reports about all of Sephral’s modules in this world: versions, settings and what the modules recorded, such as the latest chat messages they read. It contains chat text and whispers, check it before you share it.",
+  "SRT.Debug.Entry": "Save Debug File (Sephral’s Modules)",
+  "SRT.Debug.Saved": "Debug file {file} saved. It contains chat text and whispers, check it before you share it."
 }

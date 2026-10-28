@@ -350,5 +350,10 @@
   "SRT.SelfTest.Stores": "Die gespeicherten Trigger oder Profile ließen sich nicht lesen.",
   "SRT.SelfTest.TestRoll": "Ein Testwurf ließ sich nicht mit den Triggern prüfen.",
   "SRT.SelfTest.Template": "Die Vorlage des Verwaltungsfensters fehlt.",
-  "SRT.SelfTest.Disabled": "Roll Triggers ist in den Moduleinstellungen ausgeschaltet, daher löst kein Trigger aus."
+  "SRT.SelfTest.Disabled": "Roll Triggers ist in den Moduleinstellungen ausgeschaltet, daher löst kein Trigger aus.",
+  "SRT.Debug.Title": "Debug-Datei",
+  "SRT.Debug.Save": "Debug-Datei speichern",
+  "SRT.Debug.Hint": "Speichert eine Datei für Fehlerberichte über alle Module von Sephral in dieser Welt: Versionen, Einstellungen und was die Module aufgezeichnet haben, etwa die letzten Chatnachrichten, die sie gelesen haben. Sie enthält Chattext und Flüsternachrichten, prüfe sie vor dem Teilen.",
+  "SRT.Debug.Entry": "Debug-Datei speichern (Sephral’s Module)",
+  "SRT.Debug.Saved": "Debug-Datei {file} gespeichert. Sie enthält Chattext und Flüsternachrichten, prüfe sie vor dem Teilen."
 }
