@@ -1,10 +1,11 @@
 import { GenericRollAdapter } from "./adapters/generic-adapter.js";
 import { debugTrace, registerDebug } from "./debug.js";
 import { registerDebugMenu, saveDebugFile } from "./debug-file.mjs";
+import { registerHubModule } from "./hub.mjs";
 import { RollTriggerService } from "./roll-trigger-service.js";
 import { getInternalProfiles } from "./default-presets.js";
 import { openTriggerManager, openTriggerTestBench, SRTSelfTestMenu, SRTSettingsMenu, toggleTriggerManager } from "./trigger-manager.js";
-import { noticeNewVersions, runSelfTest } from "./selftest.js";
+import { TESTED_VERSIONS, noticeNewVersions, runSelfTest } from "./selftest.js";
 import {
   createSettingsFacade,
   ensureModuleTranslationsLoaded,
@@ -51,6 +52,7 @@ async function ensureProfileStoreInitialized() {
 }
 
 Hooks.once("init", () => {
+  registerHubModule({ moduleId: MODULE_ID, tested: TESTED_VERSIONS });
   registerSettings();
   registerManagerMenu(SRTSettingsMenu);
   registerSelfTestMenu(SRTSelfTestMenu);
