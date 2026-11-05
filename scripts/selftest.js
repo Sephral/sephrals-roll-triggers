@@ -8,7 +8,7 @@ import { collectMatches } from "./triggers.js";
 // than the verified one is installed.
 
 // The versions the module was verified against.
-export const TESTED_VERSIONS = Object.freeze({ core: "14.369", dnd5e: "6.0.6" });
+export const TESTED_VERSIONS = Object.freeze({ core: "14.370", dnd5e: "6.0.6" });
 
 async function checkIntegrations() {
   const problems = [];
