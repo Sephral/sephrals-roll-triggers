@@ -217,6 +217,15 @@ async function executeRollTableAction(event, trigger, action) {
     }
     if (!table) continue;
 
+    // Another module may roll the table itself and post its own card (Hooks.callAll is synchronous: a listener that
+    // takes the roll sets claim.handled and puts a promise in claim.result). The claim has the visibility, the whisper
+    // recipients and the flags that keep the card from matching a trigger again.
+    const claim = offerRollTable({ table, trigger, event, action });
+    if (claim.handled) {
+      results.push({ table, draw: (await claim.result) ?? null });
+      continue;
+    }
+
     const draw = await table.draw({ displayChat: false });
     results.push({ table, draw });
 
@@ -237,6 +246,27 @@ async function executeRollTableAction(event, trigger, action) {
   }
 
   return results;
+}
+
+// Hook "sephrals-roll-triggers.rollTable": {table, trigger, event, action, postResult, visibility, whisper, flags,
+// handled, result}. A listener that rolls the table itself sets handled to true and result to a promise.
+export const ROLL_TABLE_HOOK = "sephrals-roll-triggers.rollTable";
+
+export function offerRollTable({ table, trigger, event, action }) {
+  const claim = {
+    table,
+    trigger: { id: trigger?.id ?? null, name: trigger?.name ?? null },
+    event,
+    action,
+    postResult: action.postResult !== false,
+    visibility: action.visibility ?? "gm",
+    whisper: buildWhisperRecipients(action.visibility ?? "gm", event, action),
+    flags: { [MODULE_ID]: { [TRIGGER_OUTPUT_FLAG]: { triggerId: trigger?.id ?? null } } },
+    handled: false,
+    result: null
+  };
+  globalThis.Hooks?.callAll?.(ROLL_TABLE_HOOK, claim);
+  return claim;
 }
 
 function buildRollTableFlavor(trigger, table, resultCount) {

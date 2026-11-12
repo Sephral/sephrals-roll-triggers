@@ -540,3 +540,48 @@ test("confirmExecution uses DialogV2 when available and treats closing as no", a
     globalThis.foundry = previousFoundry;
   }
 });
+
+test("roll-table actions offer the table to a module through a hook", async () => {
+  createdMessages.length = 0;
+  const claims = [];
+  globalThis.Hooks = {
+    callAll(name, claim) {
+      claims.push({ name, claim });
+      if (claim.table.id === "table-1") {
+        claim.handled = true;
+        claim.result = Promise.resolve({ results: [{ text: "from the other module" }] });
+      }
+    }
+  };
+
+  const result = await executeMatch({
+    trigger: { id: "crit", name: "Crit" },
+    event: { userId: "u1", formula: "1d20", total: 20 },
+    actions: [{ type: "roll-table", tables: ["table-1"], visibility: "gm" }],
+    executionMode: "automatic"
+  }, { allowDeferred: false });
+
+  assert.equal(claims.length, 1);
+  assert.equal(claims[0].name, "sephrals-roll-triggers.rollTable");
+  assert.equal(claims[0].claim.table.name, "Crit Table");
+  assert.equal(claims[0].claim.visibility, "gm");
+  assert.equal(claims[0].claim.postResult, true);
+  assert.deepEqual(claims[0].claim.whisper, ["gm-1"]);
+  assert.deepEqual(claims[0].claim.flags, { "sephrals-roll-triggers": { triggerOutput: { triggerId: "crit" } } });
+  // The module rolled the table: the trigger drew and posted nothing itself
+  assert.deepEqual(result.results[0][0].draw, { results: [{ text: "from the other module" }] });
+  assert.equal(result.results[0][0].table.drawOptions, null);
+  assert.equal(createdMessages.length, 0);
+
+  // A listener that does not take the roll leaves the normal draw
+  globalThis.Hooks = { callAll() {} };
+  await executeMatch({
+    trigger: { id: "crit", name: "Crit" },
+    event: { userId: "u1", formula: "1d20", total: 20 },
+    actions: [{ type: "roll-table", tables: ["table-1"], visibility: "gm" }],
+    executionMode: "automatic"
+  }, { allowDeferred: false });
+  assert.equal(createdMessages.length, 1);
+
+  delete globalThis.Hooks;
+});

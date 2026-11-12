@@ -123,7 +123,7 @@ In D&D 5e, ability and tool checks count as *check*, death saves as *save*, hit 
 Each trigger can hold several actions. Empty actions are ignored, and a trigger without any action does nothing.
 
 * **Chat message:** posts a message from your template
-* **Roll table:** draws from a roll table and posts Foundry's result card
+* **Roll table:** draws from a roll table and posts Foundry's result card. Another module can take over the draw through the hook `sephrals-roll-triggers.rollTable`, called with `{table, trigger, event, action, postResult, visibility, whisper, flags, handled, result}`. A listener that rolls the table itself sets `handled` to `true` and `result` to a promise, and puts `flags` on the card it posts so the card does not match a trigger again. Sephral’s Deep Tables does this
 * **Macro:** runs a macro
 * **Journal link:** posts a link to a journal entry. With an empty template it posts the trigger name and the link, a template of your own replaces both (`{{journal.name}}` and `{{journal.uuid}}` are available)
 * **GM note:** sends a note to the GMs
