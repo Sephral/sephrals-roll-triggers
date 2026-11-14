@@ -20,10 +20,35 @@ globalThis.Hooks = {
   }
 };
 
-globalThis.FormApplication = class FormApplication {
-  render() {
+// A minimal ApplicationV2 for the manager class: render and close only record what happened.
+class FakeApplicationV2 {
+  constructor(options = {}) {
+    this.options = options;
+    this.rendered = false;
+    this.position = options.position ?? {};
+  }
+
+  async render() {
+    this.rendered = true;
     return this;
   }
+
+  async close() {
+    this.rendered = false;
+    return this;
+  }
+}
+
+globalThis.foundry = {
+  applications: {
+    api: {
+      ApplicationV2: FakeApplicationV2,
+      HandlebarsApplicationMixin: (Base) => class extends Base {},
+      DialogV2: { confirm: async () => true }
+    },
+    instances: new Map()
+  },
+  utils: {}
 };
 
 globalThis.game = {
@@ -73,8 +98,9 @@ globalThis.document = {
 const { __test__ } = await import("../scripts/srt.js");
 const {
   __test__: triggerManagerTest,
-  openTriggerManager,
-  SRTTriggerManager
+  getManagerClass,
+  getSettingsMenuClass,
+  openTriggerManager
 } = await import("../scripts/trigger-manager.js");
 
 test("registers a GM scene control for toggling the trigger manager", () => {
@@ -132,24 +158,19 @@ test("scene control toggle can reopen while a prior close is still pending", asy
   for (const callback of hooks.on.get("getSceneControlButtons") ?? []) callback(controls);
   ui.controls.controls.rollTriggers = controls.rollTriggers;
 
-  const originalRender = SRTTriggerManager.prototype.render;
-  const originalClose = SRTTriggerManager.prototype.close;
-  const originalSetPosition = SRTTriggerManager.prototype.setPosition;
+  const Manager = getManagerClass();
+  const originalRender = Manager.prototype.render;
+  const originalClose = Manager.prototype.close;
   let renderCount = 0;
   let closeCount = 0;
   let releaseClose = null;
 
-  SRTTriggerManager.prototype.setPosition = function(position) {
-    this.position = position;
-    return this;
-  };
-
-  SRTTriggerManager.prototype.render = function(force, options) {
+  Manager.prototype.render = function(options) {
     renderCount += 1;
-    return originalRender.call(this, force, options);
+    return originalRender.call(this, options);
   };
 
-  SRTTriggerManager.prototype.close = function(options) {
+  Manager.prototype.close = function(options) {
     closeCount += 1;
     return new Promise((resolve, reject) => {
       releaseClose = async () => {
@@ -177,16 +198,15 @@ test("scene control toggle can reopen while a prior close is still pending", asy
     await releaseClose?.();
     await pendingClose;
   } finally {
-    SRTTriggerManager.prototype.render = originalRender;
-    SRTTriggerManager.prototype.close = originalClose;
-    SRTTriggerManager.prototype.setPosition = originalSetPosition;
     triggerManagerTest.resetManagerApp();
   }
 });
+
 test("players cannot open the trigger manager through the API", async () => {
-  const originalRender = SRTTriggerManager.prototype.render;
+  const Manager = getManagerClass();
+  const originalRender = Manager.prototype.render;
   let renderCount = 0;
-  SRTTriggerManager.prototype.render = function () {
+  Manager.prototype.render = function () {
     renderCount += 1;
     return this;
   };
@@ -196,7 +216,29 @@ test("players cannot open the trigger manager through the API", async () => {
     assert.equal(renderCount, 0);
   } finally {
     game.user.isGM = true;
-    SRTTriggerManager.prototype.render = originalRender;
+    Manager.prototype.render = originalRender;
+    triggerManagerTest.resetManagerApp();
+  }
+});
+
+test("the settings menu button is an ApplicationV2 that opens the manager", async () => {
+  const Menu = getSettingsMenuClass();
+  assert.ok(Menu.prototype instanceof foundry.applications.api.ApplicationV2);
+
+  const Manager = getManagerClass();
+  const originalRender = Manager.prototype.render;
+  let renderCount = 0;
+  Manager.prototype.render = function () {
+    renderCount += 1;
+    return this;
+  };
+  try {
+    const menu = new Menu();
+    assert.equal(menu.render({ force: true }), menu);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(renderCount, 1);
+  } finally {
+    Manager.prototype.render = originalRender;
     triggerManagerTest.resetManagerApp();
   }
 });

@@ -68,9 +68,19 @@ globalThis.game = {
 const createdMessages = [];
 const executedMacros = [];
 
-globalThis.Dialog = {
-  async confirm() {
-    return true;
+// The confirmation dialog is DialogV2.confirm. Tests set the answer and read what the dialog showed.
+const dialog = { answer: true, content: "" };
+globalThis.foundry = {
+  ...(globalThis.foundry ?? {}),
+  applications: {
+    api: {
+      DialogV2: {
+        async confirm(options) {
+          dialog.content = options.content;
+          return dialog.answer;
+        }
+      }
+    }
   }
 };
 
@@ -195,13 +205,12 @@ test("executeMatch handles disabled, deferred, confirm cancel, and gm-whisper-lo
     { deferred: true, mode: "chat-button" }
   );
 
-  const originalConfirm = Dialog.confirm;
-  Dialog.confirm = async () => false;
+  dialog.answer = false;
   assert.deepEqual(
     await executeMatch({ executionMode: "confirm-gm", actions: [], trigger: { name: "T" }, event: { actorName: "A", formula: "1d20", total: 20 } }),
     { skipped: true, reason: "cancelled" }
   );
-  Dialog.confirm = originalConfirm;
+  dialog.answer = true;
 
   const gmResult = await executeMatch({
     executionMode: "gm-whisper-log",
@@ -427,9 +436,10 @@ test("escapeHtml prefers foundry.utils.escapeHTML and falls back to the same tab
   assert.equal(escapeHtml(null), "");
   assert.equal(escapeHtml(20), "20");
 
+  const previousFoundry = globalThis.foundry;
   globalThis.foundry = { utils: { escapeHTML: (value) => `escaped:${value}` } };
   assert.equal(escapeHtml("<b>"), "escaped:<b>");
-  delete globalThis.foundry;
+  globalThis.foundry = previousFoundry;
 });
 
 test("renderTemplateString keeps the GM template HTML and escapes substituted values", () => {
@@ -469,14 +479,10 @@ test("chat, journal, gm-whisper-log and confirm output escape names", async () =
   await executeMatch({ trigger, event, actions: [], executionMode: "gm-whisper-log" });
   assert.equal(createdMessages.at(-1).content, "<div><strong>&lt;script&gt;Nat20&lt;/script&gt;</strong>: 1d20&lt;script&gt; = 20</div>");
 
-  const originalConfirm = Dialog.confirm;
-  let dialogContent = "";
-  Dialog.confirm = async ({ content }) => {
-    dialogContent = content;
-    return false;
-  };
+  dialog.answer = false;
   await confirmExecution({ trigger, event, actions: [{ type: "<img>" }] });
-  Dialog.confirm = originalConfirm;
+  dialog.answer = true;
+  const dialogContent = dialog.content;
 
   assert.match(dialogContent, /&lt;script&gt;Nat20&lt;\/script&gt;/);
   assert.match(dialogContent, /&lt;b&gt;Hero&lt;\/b&gt;/);

@@ -63,7 +63,8 @@ export class RollTriggerService {
   }
 
   getActiveTriggers() {
-    return (this.settings.getTriggers?.() ?? []).filter((trigger) => trigger?.enabled !== false);
+    // Combat triggers have their own service (combat-service.js), they never match a roll.
+    return (this.settings.getTriggers?.() ?? []).filter((trigger) => trigger && typeof trigger === "object" && trigger.enabled !== false && trigger.kind !== "combat");
   }
 
   async processChatMessage(message) {

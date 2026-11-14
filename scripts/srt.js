@@ -4,7 +4,10 @@ import { registerDebugMenu, saveDebugFile } from "./debug-file.mjs";
 import { registerHubModule } from "./hub.mjs";
 import { RollTriggerService } from "./roll-trigger-service.js";
 import { getInternalProfiles } from "./default-presets.js";
-import { openTriggerManager, openTriggerTestBench, SRTSelfTestMenu, SRTSettingsMenu, toggleTriggerManager } from "./trigger-manager.js";
+import { CombatTriggerService } from "./combat-service.js";
+import { openRuleGallery } from "./gallery-window.js";
+import { registerTemplateHelpers } from "./templates.js";
+import { getSelfTestMenuClass, getSettingsMenuClass, openTriggerManager, openTriggerTestBench, refreshTriggerManager, toggleTriggerManager } from "./trigger-manager.js";
 import { TESTED_VERSIONS, noticeNewVersions, runSelfTest } from "./selftest.js";
 import {
   createSettingsFacade,
@@ -20,6 +23,7 @@ import {
 import { registerUsage } from "./usage.mjs";
 
 let service = null;
+let combatService = null;
 const DEFAULT_SCENE_CONTROL = "tokens";
 const TRIGGER_MANAGER_CONTROL = "rollTriggers";
 
@@ -54,12 +58,13 @@ async function ensureProfileStoreInitialized() {
 Hooks.once("init", () => {
   registerHubModule({ moduleId: MODULE_ID, tested: TESTED_VERSIONS });
   registerSettings();
-  registerManagerMenu(SRTSettingsMenu);
-  registerSelfTestMenu(SRTSelfTestMenu);
+  registerTemplateHelpers();
+  registerManagerMenu(getSettingsMenuClass());
+  registerSelfTestMenu(getSelfTestMenuClass());
   registerDebugMenu(MODULE_ID, { name: localize("Debug.Title"), label: localize("Debug.Save"), hint: localize("Debug.Hint") });
   registerDebug(() => service);
   registerUsage(MODULE_ID, {
-    features: ["triggerFired", "chatButtonRun", "triggerCreate", "triggerEdit", "profileImport", "fileImport", "fileExport", "testBench"],
+    features: ["triggerFired", "chatButtonRun", "triggerCreate", "triggerEdit", "profileImport", "fileImport", "fileExport", "testBench", "galleryOpen", "galleryAdd", "combatTriggerCreate", "combatTriggerFired"],
     settings: [SETTINGS.UI_THEME, SETTINGS.DEFAULT_EXECUTION_MODE, SETTINGS.ALLOW_PLAYER_BUTTONS]
   });
 });
@@ -73,6 +78,11 @@ Hooks.once("ready", async () => {
     trace: debugTrace
   });
 
+  combatService = new CombatTriggerService({
+    settings: createSettingsFacade(),
+    trace: debugTrace
+  });
+
   scheduleChatHydration();
 
   const module = game.modules.get(MODULE_ID);
@@ -81,6 +91,7 @@ Hooks.once("ready", async () => {
       openManager: openTriggerManager,
       toggleManager: toggleTriggerManager,
       openTestBench: openTriggerTestBench,
+      openGallery: openRuleGallery,
       runSelfTest,
       // One file for all of Sephral's modules, without a message id about their latest picture
       saveDebugFile: (messageId) => saveDebugFile(messageId ?? null, { moduleId: MODULE_ID })
@@ -173,6 +184,26 @@ Hooks.on("updateChatMessage", async (message, changed) => {
   if (!service || !service.adapter?.rollsChanged?.(changed)) return;
   await service.processChatMessage(message);
 });
+
+// Combat triggers. The hooks fire on every client, the service lets only the active GM act and counts an event once.
+Hooks.on("combatTurnChange", (combat, previous, current) => {
+  void combatService?.handleTurnChange(combat, previous, current);
+});
+
+Hooks.on("deleteCombat", (combat) => {
+  void combatService?.handleCombatDeleted(combat);
+});
+
+Hooks.on("deleteActiveEffect", (effect) => {
+  void combatService?.handleEffectDeleted(effect);
+});
+
+// The manager follows changes of the triggers made elsewhere (the gallery, another GM).
+for (const hookName of ["createSetting", "updateSetting"]) {
+  Hooks.on(hookName, (setting) => {
+    if (setting?.key === `${MODULE_ID}.triggers`) refreshTriggerManager();
+  });
+}
 
 Hooks.on("renderChatMessageHTML", (message, html) => {
   if (!service) return;

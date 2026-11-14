@@ -42,29 +42,6 @@
   width: 100%;
 }
 
-.srt-dialog-resize-handle {
-  position: absolute;
-  right: 2px;
-  bottom: 2px;
-  width: 24px;
-  height: 24px;
-  display: grid;
-  place-items: center;
-  color: var(--color-text-light-highlight, #f0f0e0);
-  background: rgba(0, 0, 0, 0.72);
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  border-radius: 4px;
-  cursor: nwse-resize;
-  touch-action: none;
-  -webkit-user-select: none;
-  user-select: none;
-  z-index: 10;
-}
-
-.srt-dialog-resize-handle i {
-  pointer-events: none;
-}
-
 .srt-hero {
   padding: 0.75rem 0.9rem;
   border: 1px solid var(--srt-line);
@@ -427,41 +404,6 @@
   padding: 0;
 }
 
-.app.window-app.srt-window .dialog-content > form.srt-trigger-dialog {
-  background:
-    linear-gradient(180deg, rgba(252, 248, 242, 0.98) 0%, rgba(244, 236, 225, 0.98) 100%);
-  border: 1px solid rgba(73, 49, 32, 0.12);
-  border-radius: 16px;
-  box-shadow: 0 12px 28px rgba(49, 34, 23, 0.08);
-}
-
-.app.window-app.srt-window,
-.app.window-app.srt-window .window-content {
-  overflow: hidden;
-}
-
-.app.window-app.srt-window .window-content {
-  display: flex;
-  flex-direction: column;
-  padding: 0;
-  background: transparent;
-}
-
-.app.window-app.srt-window .dialog-content {
-  display: flex;
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: hidden;
-  padding: 0;
-}
-
-.app.window-app.srt-window .dialog-content > .srt-trigger-dialog,
-.app.window-app.srt-window .dialog-content > form.srt-trigger-dialog {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: hidden;
-}
-
 .srt-trigger-dialog__tabs {
   display: flex;
   align-items: stretch;
@@ -678,54 +620,6 @@
   font-weight: 600;
 }
 
-.app.window-app.srt-window .dialog-buttons {
-  flex: 0 0 auto;
-  gap: 0.35rem;
-  margin-top: auto;
-  padding: 0.78rem 0.82rem 0.82rem;
-  border-top: 1px solid rgba(73, 49, 32, 0.08);
-  background: linear-gradient(180deg, rgba(244, 236, 225, 0.8), rgba(244, 236, 225, 0.96));
-}
-
-.app.window-app.srt-window .dialog-buttons button,
-.app.window-app.srt-window .dialog-buttons .dialog-button {
-  --button-background-color: rgba(255, 255, 255, 0.82);
-  --button-border-color: rgba(73, 49, 32, 0.14);
-  --button-text-color: var(--srt-ink, #1f1a17);
-  --button-hover-background-color: rgba(255, 255, 255, 0.92);
-  --button-hover-border-color: rgba(181, 81, 45, 0.38);
-  --button-hover-text-color: var(--srt-ink, #1f1a17);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.82);
-  color: var(--srt-ink, #1f1a17);
-  border: 1px solid rgba(73, 49, 32, 0.14);
-  box-shadow: 0 6px 14px rgba(49, 34, 23, 0.05);
-}
-
-.app.window-app.srt-window .dialog-buttons button.default,
-.app.window-app.srt-window .dialog-buttons button:first-child,
-.app.window-app.srt-window .dialog-buttons .dialog-button.default,
-.app.window-app.srt-window .dialog-buttons .dialog-button.bright,
-.app.window-app.srt-window .dialog-buttons .dialog-button.default.bright {
-  --button-background-color: linear-gradient(135deg, rgba(181, 81, 45, 0.92), rgba(153, 67, 38, 0.92));
-  --button-border-color: rgba(125, 51, 25, 0.3);
-  --button-text-color: #fff8f4;
-  --button-hover-background-color: linear-gradient(135deg, rgba(193, 92, 53, 0.96), rgba(162, 72, 41, 0.96));
-  --button-hover-border-color: rgba(125, 51, 25, 0.38);
-  --button-hover-text-color: #fff8f4;
-  background: linear-gradient(135deg, rgba(181, 81, 45, 0.92), rgba(153, 67, 38, 0.92));
-  color: #fff8f4;
-  border-color: rgba(125, 51, 25, 0.3);
-}
-
-.app.window-app.srt-window .dialog-buttons button:hover,
-.app.window-app.srt-window .dialog-buttons button:focus,
-.app.window-app.srt-window .dialog-buttons .dialog-button:hover,
-.app.window-app.srt-window .dialog-buttons .dialog-button:focus {
-  border-color: rgba(181, 81, 45, 0.38);
-  box-shadow: 0 0 0 2px rgba(181, 81, 45, 0.12);
-}
-
 .srt-window[data-ui-theme="foundry"] .srt-trigger-dialog fieldset {
   background: rgba(255, 255, 255, 0.03);
   border-color: rgba(255, 255, 255, 0.08);
@@ -736,18 +630,6 @@
   border-color: rgba(255, 255, 255, 0.08);
   border-radius: 6px;
   box-shadow: none;
-}
-
-.app.window-app.srt-window[data-ui-theme="foundry"] .dialog-content > form.srt-trigger-dialog {
-  background: linear-gradient(180deg, rgba(30, 32, 36, 0.98), rgba(21, 22, 25, 0.98));
-  border-color: rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
-  box-shadow: none;
-}
-
-.app.window-app.srt-window[data-ui-theme="foundry"] .dialog-buttons {
-  border-top-color: rgba(255, 255, 255, 0.08);
-  background: rgba(24, 25, 28, 0.98);
 }
 
 .srt-window[data-ui-theme="foundry"] .srt-trigger-dialog legend {
@@ -829,22 +711,6 @@
 
 .srt-window[data-ui-theme="foundry"] .srt-trigger-dialog select[multiple] option:checked {
   background: rgba(182, 95, 58, 0.38);
-  color: #fff3e8;
-}
-
-.app.window-app.srt-window[data-ui-theme="foundry"] .dialog-buttons button.default,
-.app.window-app.srt-window[data-ui-theme="foundry"] .dialog-buttons button:first-child,
-.app.window-app.srt-window[data-ui-theme="foundry"] .dialog-buttons .dialog-button.default,
-.app.window-app.srt-window[data-ui-theme="foundry"] .dialog-buttons .dialog-button.bright,
-.app.window-app.srt-window[data-ui-theme="foundry"] .dialog-buttons .dialog-button.default.bright {
-  --button-background-color: rgba(182, 95, 58, 0.28);
-  --button-border-color: rgba(214, 156, 109, 0.35);
-  --button-text-color: #fff3e8;
-  --button-hover-background-color: rgba(182, 95, 58, 0.38);
-  --button-hover-border-color: rgba(214, 156, 109, 0.45);
-  --button-hover-text-color: #fff3e8;
-  background: rgba(182, 95, 58, 0.28);
-  border-color: rgba(214, 156, 109, 0.35);
   color: #fff3e8;
 }
 
@@ -1232,4 +1098,286 @@
   .srt-bench-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* ApplicationV2 windows: manager, trigger editor and gallery of ready rules */
+.application.srt-window .window-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  background: transparent;
+}
+
+.application.srt-window .window-content > .srt-app {
+  flex: 1 1 auto;
+}
+
+.srt-panel-header {
+  flex-wrap: wrap;
+}
+
+.srt-badge-row {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 0.3rem;
+}
+
+.srt-badge--kind {
+  background: rgba(73, 49, 32, 0.08);
+  color: var(--srt-muted);
+}
+
+.srt-badge--combat {
+  background: rgba(45, 90, 140, 0.14);
+  color: #2d5a8c;
+}
+
+.srt-app[data-ui-theme="foundry"] .srt-badge--kind {
+  color: #b9b3aa;
+}
+
+.srt-app[data-ui-theme="foundry"] .srt-badge--combat {
+  background: rgba(90, 150, 210, 0.2);
+  color: #9cc4ec;
+}
+
+[data-srt-kind-hidden] {
+  display: none !important;
+}
+
+.srt-empty-state .srt-inline-action {
+  margin-top: 0.5rem;
+}
+
+/* The trigger editor is an application of its own, the form is the window */
+.application.srt-editor-window.srt-trigger-dialog {
+  border: none;
+  background: transparent;
+}
+
+.application.srt-editor-window .window-content {
+  background:
+    linear-gradient(180deg, rgba(252, 248, 242, 0.98) 0%, rgba(244, 236, 225, 0.98) 100%);
+}
+
+.application.srt-editor-window .srt-trigger-dialog__panel:not(.active) {
+  display: none;
+}
+
+.application.srt-editor-window .srt-trigger-dialog__panel {
+  margin: 0.5rem 0.78rem;
+}
+
+.application.srt-editor-window .srt-trigger-dialog__panel.active {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.application.srt-editor-window .srt-trigger-dialog__tabs {
+  flex: 0 0 auto;
+}
+
+.srt-editor-footer {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0.6rem 0.78rem 0.78rem;
+}
+
+.srt-editor-footer button {
+  width: 100%;
+}
+
+.srt-editor-note {
+  margin: 0 0 0.4rem;
+  color: var(--srt-muted, #6f655d);
+  font-size: 0.8rem;
+}
+
+.application.srt-editor-window[data-ui-theme="foundry"] .window-content {
+  background: rgba(24, 25, 28, 0.98);
+}
+
+.application.srt-editor-window[data-ui-theme="foundry"] .srt-trigger-dialog__panel {
+  background: rgba(33, 36, 41, 0.94);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.application.srt-editor-window[data-ui-theme="foundry"] .srt-editor-note {
+  color: #b9b3aa;
+}
+
+/* Gallery of ready rules */
+.srt-gallery {
+  overflow: hidden;
+}
+
+.srt-gallery-hero h2 {
+  margin: 0;
+  color: var(--srt-ink);
+  font-size: 1.15rem;
+  line-height: 1.15;
+  border: none;
+}
+
+.srt-gallery-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 1rem;
+  margin-top: 0.55rem;
+}
+
+.srt-gallery-search {
+  flex: 1 1 14rem;
+  min-width: 10rem;
+  height: 2rem;
+  padding: 0 0.6rem;
+  border: 1px solid var(--srt-line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--srt-ink);
+}
+
+.srt-gallery-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--srt-ink);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.srt-gallery-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  padding-right: 0.2rem;
+}
+
+.srt-gallery-group__title {
+  margin: 0 0 0.4rem;
+  padding: 0;
+  border: none;
+  color: var(--srt-accent);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.srt-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 0.55rem;
+}
+
+.srt-gallery-card {
+  gap: 0.35rem;
+}
+
+.srt-gallery-card__head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.srt-gallery-card__head h4 {
+  margin: 0;
+  padding: 0;
+  border: none;
+  color: var(--srt-ink);
+  font-family: var(--font-primary, inherit);
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-transform: none;
+}
+
+.srt-gallery-card__icon {
+  color: var(--srt-accent);
+  font-size: 0.95rem;
+  width: 1.1rem;
+  text-align: center;
+}
+
+.srt-gallery-words {
+  margin: 0;
+  color: var(--srt-muted);
+  font-size: 0.8rem;
+  line-height: 1.3;
+}
+
+.srt-gallery-words__label {
+  color: var(--srt-ink);
+  font-weight: 700;
+}
+
+.srt-gallery-slot {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.srt-gallery-slot label {
+  flex: 0 0 auto;
+  color: var(--srt-ink);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.srt-gallery-slot select,
+.srt-gallery-slot input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 1.8rem;
+}
+
+.srt-gallery-card .srt-card-actions {
+  margin-top: auto;
+}
+
+.srt-app[data-ui-theme="foundry"] .srt-gallery-hero h2,
+.srt-app[data-ui-theme="foundry"] .srt-gallery-card__head h4,
+.srt-app[data-ui-theme="foundry"] .srt-gallery-words__label,
+.srt-app[data-ui-theme="foundry"] .srt-gallery-slot label,
+.srt-app[data-ui-theme="foundry"] .srt-gallery-toggle {
+  color: #e6e1d8;
+}
+
+.srt-app[data-ui-theme="foundry"] .srt-gallery-words {
+  color: #b9b3aa;
+}
+
+.srt-app[data-ui-theme="foundry"] .srt-gallery-group__title,
+.srt-app[data-ui-theme="foundry"] .srt-gallery-card__icon {
+  color: #d69c6d;
+}
+
+.srt-app[data-ui-theme="foundry"] .srt-gallery-search {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #e6e1d8;
+}
+
+.srt-gallery-slot select,
+.srt-gallery-slot input {
+  padding: 0 0.4rem;
+  border: 1px solid var(--srt-line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--srt-ink);
+}
+
+.srt-app[data-ui-theme="foundry"] .srt-gallery-slot select,
+.srt-app[data-ui-theme="foundry"] .srt-gallery-slot input {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #e6e1d8;
 }

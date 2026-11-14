@@ -1,0 +1,11 @@
+{{#if isTextarea}}
+  <div class="form-group srt-dialog-field--stacked srt-trigger-dialog__expression-field" {{#if extra}}data-srt-extra-match-field="{{field}}"{{else}}data-srt-match-field="{{field}}"{{/if}}>
+    <label title="{{hint}}" aria-label="{{hint}}">{{label}}</label>
+    <textarea {{#if extra}}data-srt-extra-match-input="{{field}}"{{else}}name="{{name}}"{{/if}} rows="{{rows}}" spellcheck="false">{{value}}</textarea>
+  </div>
+{{else}}
+  <div class="form-group" {{#if extra}}data-srt-extra-match-field="{{field}}"{{else}}data-srt-match-field="{{field}}"{{/if}}>
+    <label title="{{hint}}" aria-label="{{hint}}">{{label}}</label>
+    <input type="{{inputType}}" {{#if extra}}data-srt-extra-match-input="{{field}}"{{else}}name="{{name}}"{{/if}} value="{{value}}">
+  </div>
+{{/if}}

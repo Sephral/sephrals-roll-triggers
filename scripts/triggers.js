@@ -186,6 +186,8 @@ export function evaluateTriggerConditions(trigger, event) {
 
 export function matchTrigger(trigger, event, options = {}) {
   if (!trigger?.enabled) return null;
+  // Combat triggers react to combat events, never to rolls (see combat-events.js).
+  if (trigger.kind === "combat") return null;
   if (!passesFilters(trigger, event, options)) return null;
   if (!evaluateTriggerConditions(trigger, event)) return null;
 
@@ -197,8 +199,8 @@ export function matchTrigger(trigger, event, options = {}) {
   };
 }
 
-// A trigger runs at most once per chat message (first matching roll) unless oncePerMessage is false
-// or allowMultipleMatches is true. Both fields are stored on every trigger, either one opts into a run per roll.
+// A trigger runs at most once per chat message (first matching roll) unless oncePerMessage is false. Triggers saved
+// by older versions may carry allowMultipleMatches: true for the same thing, that still counts (no data migration).
 export function allowsRepeatedMatches(trigger) {
   return trigger?.oncePerMessage === false || trigger?.allowMultipleMatches === true;
 }
@@ -279,7 +281,8 @@ export function simulateTriggers(triggers, event, options = {}) {
   const reports = [];
   let stoppedBy = null;
 
-  for (const trigger of orderTriggersByPriority(triggers)) {
+  // Combat triggers react to combat events, the test bench and the debug file only simulate rolls.
+  for (const trigger of orderTriggersByPriority((triggers ?? []).filter((entry) => entry?.kind !== "combat"))) {
     const report = explainTrigger(trigger, event, options);
     if (stoppedBy) {
       reports.push({ ...report, matched: false, match: null, stoppedBy });

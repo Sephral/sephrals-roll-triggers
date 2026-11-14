@@ -84,6 +84,12 @@ function buildTemplateContext(event, trigger, extra = {}) {
       id: event.systemId,
       version: event.systemVersion
     },
+    // Combat triggers have no roll. Their events carry the combat, the combatant and an ending effect instead.
+    ...(event.combatEvent ? {
+      combat: { event: event.combatEvent, round: event.round ?? null, turn: event.turn ?? null, name: event.combatName ?? "" },
+      combatant: { name: event.combatantName ?? "" },
+      effect: { name: event.effectName ?? "" }
+    } : {}),
     ...extra
   };
 }
@@ -151,8 +157,7 @@ function serializeTriggerForDeferred(trigger) {
     category: trigger?.category ?? "house-rule",
     enabled: trigger?.enabled !== false,
     priority: Number(trigger?.priority ?? 0),
-    oncePerMessage: trigger?.oncePerMessage !== false,
-    allowMultipleMatches: Boolean(trigger?.allowMultipleMatches),
+    oncePerMessage: trigger?.oncePerMessage !== false && trigger?.allowMultipleMatches !== true,
     stopLowerPriority: Boolean(trigger?.stopLowerPriority),
     executionMode: trigger?.executionMode ?? "chat-button",
     visibilityMode: trigger?.visibilityMode ?? "inherit",
@@ -634,15 +639,27 @@ export function summarizeActions(actions) {
   return (actions ?? []).map((action) => describeAction(action));
 }
 
-// DialogV2 in v13 and v14 (the V1 Dialog logs a deprecation warning). Closing the dialog counts as no.
+// DialogV2 exists in v13 and v14. Closing the dialog counts as no.
 async function confirmDialog(title, content) {
-  const DialogV2 = globalThis.foundry?.applications?.api?.DialogV2;
-  if (typeof DialogV2?.confirm === "function") {
-    const confirmed = await DialogV2.confirm({ window: { title }, content, yes: { default: true }, rejectClose: false });
-    return confirmed === true;
-  }
-  if (typeof globalThis.Dialog?.confirm !== "function") return true;
-  return Boolean(await globalThis.Dialog.confirm({ title, content, yes: () => true, no: () => false, defaultYes: true }));
+  const confirmed = await globalThis.foundry.applications.api.DialogV2.confirm({
+    window: { title },
+    content,
+    yes: { default: true },
+    rejectClose: false
+  });
+  return confirmed === true;
+}
+
+// The line of the confirmation about what happened: the roll, or the combat event of a combat trigger.
+function describeEventLine(event) {
+  if (event?.combatEvent) return `<p><strong>${localize("Dialog.Event")}</strong>: ${escapeHtml(event.description ?? event.combatEvent)}</p>`;
+  return `<p><strong>${localize("Dialog.Roll")}</strong>: ${escapeHtml(event.formula)} = ${escapeHtml(event.total ?? "-")}</p>`;
+}
+
+// The line of the GM whisper log: the roll with its total, or the combat event.
+function describeLogLine(event) {
+  if (event?.combatEvent) return escapeHtml(event.description ?? event.combatEvent);
+  return `${escapeHtml(event?.formula)} = ${escapeHtml(event?.total ?? "-")}`;
 }
 
 export async function confirmExecution(match) {
@@ -653,7 +670,7 @@ export async function confirmExecution(match) {
     <div>
       <p><strong>${localize("Dialog.Trigger")}</strong>: ${escapeHtml(match.trigger.name)}</p>
       <p><strong>${localize("Dialog.Actor")}</strong>: ${escapeHtml(match.event.actorName ?? "-")}</p>
-      <p><strong>${localize("Dialog.Roll")}</strong>: ${escapeHtml(match.event.formula)} = ${escapeHtml(match.event.total ?? "-")}</p>
+      ${describeEventLine(match.event)}
       <p><strong>${localize("Dialog.Actions")}</strong></p>
       <ul>${actionList}</ul>
     </div>
@@ -705,7 +722,7 @@ export async function executeMatch(match, options = {}) {
   if (mode === "gm-whisper-log") {
     await ChatMessage.create({
       whisper: ChatMessage.getWhisperRecipients("GM").map((user) => user.id),
-      content: `<div><strong>${escapeHtml(match.trigger.name)}</strong>: ${escapeHtml(match.event.formula)} = ${escapeHtml(match.event.total ?? "-")}</div>`
+      content: `<div><strong>${escapeHtml(match.trigger.name)}</strong>: ${describeLogLine(match.event)}</div>`
     });
     return { skipped: false, mode };
   }

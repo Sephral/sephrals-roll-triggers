@@ -1,0 +1,26 @@
+<fieldset data-srt-action-config>
+  <legend title="{{srtT 'DialogHint.TriggerActionType'}}" aria-label="{{srtT 'DialogHint.TriggerActionType'}}">{{srtT "Dialog.TriggerActionType"}} {{number}}</legend>
+  <div class="form-group">
+    <label title="{{srtT 'DialogHint.TriggerActionType'}}" aria-label="{{srtT 'DialogHint.TriggerActionType'}}">{{srtT "Dialog.TriggerActionType"}}</label>
+    <select name="triggerActionType{{index}}" data-srt-action-type>{{selectOptions typeChoices selected=type}}</select>
+  </div>
+  {{#each fields}}
+    <div class="form-group" data-srt-action-field="{{this.field}}">
+      <label title="{{this.hint}}" aria-label="{{this.hint}}">{{this.label}}</label>
+      {{#if (eq this.kind "select")}}
+        <select name="{{this.name}}">{{selectOptions this.choices selected=this.selected}}</select>
+      {{else if (eq this.kind "file")}}
+        <div class="form-fields srt-file-field">
+          <input type="text" name="{{this.name}}" value="{{this.value}}">
+          <button type="button" class="srt-file-picker" data-action="pickFile" data-picker="{{this.picker}}" data-target="{{this.name}}" title="{{this.browse}}" aria-label="{{this.browse}}">
+            <i class="fa-solid fa-file-import" aria-hidden="true"></i>
+          </button>
+        </div>
+      {{else if (eq this.kind "number")}}
+        <input type="number" name="{{this.name}}" value="{{this.value}}"{{#if this.attrs}} min="{{this.attrs.min}}"{{#if this.attrs.max}} max="{{this.attrs.max}}"{{/if}} step="{{this.attrs.step}}"{{/if}}>
+      {{else}}
+        <input type="text" name="{{this.name}}" value="{{this.value}}"{{#if (eq this.spellcheck false)}} spellcheck="false"{{/if}}>
+      {{/if}}
+    </div>
+  {{/each}}
+</fieldset>

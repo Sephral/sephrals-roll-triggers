@@ -1,0 +1,71 @@
+<div class="srt-app srt-gallery flexcol" data-ui-theme="{{uiTheme}}">
+  <section class="srt-hero srt-gallery-hero">
+    <div class="srt-eyebrow">{{srtT "Gallery.Eyebrow"}}</div>
+    <h2>{{srtT "Gallery.Title"}}</h2>
+    <p class="srt-summary">{{srtT "Gallery.Summary"}}</p>
+    <div class="srt-gallery-tools">
+      <input type="search" class="srt-gallery-search" data-srt-gallery-search placeholder="{{srtT 'Gallery.SearchPlaceholder'}}" aria-label="{{srtT 'Gallery.SearchPlaceholder'}}" value="{{search}}">
+      <label class="srt-gallery-toggle" title="{{srtT 'Gallery.ShowAllHint'}}">
+        <input type="checkbox" data-srt-gallery-all {{#if showAll}}checked{{/if}}>
+        <span>{{srtT "Gallery.ShowAll"}}</span>
+      </label>
+    </div>
+    <p class="srt-scope-summary">{{systemNote}}</p>
+  </section>
+
+  <div class="srt-gallery-body" data-srt-gallery-body>
+    {{#each groups as |group|}}
+      <section class="srt-gallery-group" data-srt-gallery-group="{{group.id}}">
+        <h3 class="srt-gallery-group__title">{{group.label}}</h3>
+        <div class="srt-gallery-grid">
+          {{#each group.rules as |rule|}}
+            <article class="srt-card srt-gallery-card" data-rule-id="{{rule.id}}" data-srt-search="{{rule.searchText}}">
+              <div class="srt-card-header">
+                <div class="srt-card-head srt-gallery-card__head">
+                  <i class="fa-solid {{rule.icon}} srt-gallery-card__icon" aria-hidden="true"></i>
+                  <h4>{{rule.title}}</h4>
+                </div>
+                <span class="srt-badge-row">
+                  <span class="srt-badge srt-badge--kind {{#if rule.isCombat}}srt-badge--combat{{/if}}">{{rule.kindLabel}}</span>
+                  {{#if rule.added}}<span class="srt-badge srt-badge--enabled">{{srtT "Gallery.Added"}}</span>{{/if}}
+                </span>
+              </div>
+              <p class="srt-gallery-words"><span class="srt-gallery-words__label">{{srtT "Gallery.When"}}</span> <span data-srt-when>{{rule.when}}</span></p>
+              <p class="srt-gallery-words"><span class="srt-gallery-words__label">{{srtT "Gallery.Then"}}</span> <span data-srt-then>{{rule.then}}</span></p>
+              {{#each rule.slots as |slot|}}
+                <div class="srt-gallery-slot form-group">
+                  <label>{{slot.label}}</label>
+                  {{#if slot.isTable}}
+                    <select data-srt-slot="{{slot.key}}">{{selectOptions slot.choices selected=slot.value}}</select>
+                  {{else}}
+                    <input type="number" data-srt-slot="{{slot.key}}" value="{{slot.value}}" min="{{slot.min}}" max="{{slot.max}}" step="1">
+                  {{/if}}
+                </div>
+              {{/each}}
+              <div class="srt-card-meta"><span class="srt-card-meta-label">{{srtT "Manager.Execution"}}</span><span class="srt-card-meta-separator">:</span> {{rule.modeLabel}}</div>
+              <div class="srt-card-actions">
+                <button type="button" class="srt-inline-action is-primary" data-action="addRule" data-rule-id="{{rule.id}}">
+                  <i class="fas fa-plus" aria-hidden="true"></i>
+                  <span class="srt-inline-action__label">{{#if rule.added}}{{srtT "Gallery.AddAgain"}}{{else}}{{srtT "Gallery.Add"}}{{/if}}</span>
+                </button>
+                <button type="button" class="srt-inline-action" data-action="addRuleAndEdit" data-rule-id="{{rule.id}}">
+                  <i class="fas fa-pen" aria-hidden="true"></i>
+                  <span class="srt-inline-action__label">{{srtT "Gallery.AddAndEdit"}}</span>
+                </button>
+              </div>
+            </article>
+          {{/each}}
+        </div>
+      </section>
+    {{else}}
+      <div class="srt-empty-state">
+        <div class="srt-empty-title">{{srtT "Gallery.EmptyTitle"}}</div>
+        <div class="srt-empty-copy">{{srtT "Gallery.Empty"}}</div>
+      </div>
+    {{/each}}
+    <div class="srt-empty-state" data-srt-gallery-none hidden>
+      <div class="srt-empty-title">{{srtT "Gallery.NoMatchTitle"}}</div>
+      <div class="srt-empty-copy">{{srtT "Gallery.NoMatch"}}</div>
+    </div>
+  </div>
+</div>

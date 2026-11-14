@@ -596,3 +596,15 @@ test("a trigger without actions asks nothing, stores no button and only the whis
   assert.equal(hasNothingToRun({ executionMode: "automatic", actions: [{ type: "gm-note" }] }), false);
   assert.equal(hasNothingToRun({ executionMode: "gm-whisper-log", actions: [] }), false);
 });
+
+test("the roll service skips combat triggers, switched off triggers and broken entries", () => {
+  const service = new RollTriggerService({
+    adapter: { supportsMessage: () => true, extractRollEvents: () => [] },
+    settings: {
+      enabled: true,
+      moduleId: "sephrals-roll-triggers",
+      getTriggers: () => [null, "text", { id: "roll", enabled: true }, { id: "off", enabled: false }, { id: "combat", kind: "combat", enabled: true }, { id: "legacy" }]
+    }
+  });
+  assert.deepEqual(service.getActiveTriggers().map((trigger) => trigger.id), ["roll", "legacy"]);
+});

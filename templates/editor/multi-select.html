@@ -1,0 +1,5 @@
+<div class="form-group srt-dialog-field--stacked"{{#if kindSection}} data-srt-kind-section="{{kindSection}}"{{/if}}{{#if combatField}} data-srt-combat-field="{{combatField}}"{{/if}}{{#if detail}} data-srt-filter-detail="{{detail}}"{{/if}}>
+  <label title="{{hint}}" aria-label="{{hint}}">{{label}}</label>
+  <div class="srt-multiselect-summary" data-srt-multiselect-summary="{{name}}">{{data.summary}}</div>
+  <select name="{{name}}" multiple size="{{size}}"{{#if emptyLabel}} data-srt-empty-label="{{emptyLabel}}"{{/if}}>{{selectOptions data.choices selected=data.selected}}</select>
+</div>

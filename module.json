@@ -1,7 +1,7 @@
 {
   "id": "sephrals-roll-triggers",
   "title": "Sephral’s Roll Triggers",
-  "description": "Bring your house rules to life: react to natural 20s, fumbles, doubles, triples and other special rolls with chat messages, roll tables, macros or GM notes. Starter profiles for many popular systems included.",
+  "description": "Bring your house rules to life: react to natural 20s, fumbles, doubles and other special rolls, or to a turn, a round or the start of a combat, with chat messages, roll tables, macros or GM notes. A gallery of ready house rules for your game system adds them with one click.",
   "version": "1.0.12",
   "compatibility": {
     "minimum": 13,

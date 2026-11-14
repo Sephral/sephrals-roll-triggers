@@ -1,0 +1,16 @@
+<fieldset class="srt-extra-match" data-srt-extra-match>
+  <legend title="{{srtT 'DialogHint.TriggerExtraMatch'}}">{{srtT "Dialog.TriggerExtraMatch"}} <span data-srt-extra-match-number>{{number}}</span></legend>
+  <div class="form-group">
+    <label title="{{srtT 'DialogHint.TriggerMatchType'}}" aria-label="{{srtT 'DialogHint.TriggerMatchType'}}">{{srtT "Dialog.TriggerMatchType"}}</label>
+    <select data-srt-extra-match-input="type">{{selectOptions typeChoices selected=type}}</select>
+  </div>
+  {{#each fields}}
+    {{> "modules/sephrals-roll-triggers/templates/editor/match-field.html"}}
+  {{/each}}
+  <div class="srt-extra-match__actions">
+    <button type="button" class="srt-inline-action is-danger" data-action="removeExtraMatch" title="{{srtT 'DialogHint.TriggerExtraMatchRemove'}}">
+      <i class="fa-solid fa-trash" aria-hidden="true"></i>
+      <span class="srt-inline-action__label">{{srtT "Dialog.TriggerExtraMatchRemove"}}</span>
+    </button>
+  </div>
+</fieldset>

@@ -137,13 +137,13 @@ export async function ensureModuleTranslationsLoaded() {
   return MODULE_TRANSLATION_LOAD;
 }
 
+// Windows of this module that show texts. They render again after the language changed.
+const REFRESHED_WINDOW_IDS = [`${MODULE_ID}-manager`, `${MODULE_ID}-gallery`];
+
 function refreshLocalizedUi() {
-  for (const app of Object.values(ui?.windows ?? {})) {
-    if (app?.options?.id === `${MODULE_ID}-manager`) {
-      app.options ??= {};
-      app.options.title = localize("Manager.Title");
-      app.render(true);
-    }
+  for (const id of REFRESHED_WINDOW_IDS) {
+    const app = globalThis.foundry?.applications?.instances?.get?.(id);
+    if (app?.rendered) void app.render();
   }
   ui?.controls?.render?.({ reset: true });
 }

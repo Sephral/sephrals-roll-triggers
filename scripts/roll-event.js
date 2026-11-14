@@ -79,7 +79,7 @@ function getRollMode(message) {
   return String(message?.rollMode ?? message?.flags?.core?.rollMode ?? game.settings?.get?.("core", "rollMode") ?? "publicroll");
 }
 
-function getActorType(actor) {
+export function getActorType(actor) {
   if (!actor) return "none";
   const rawType = String(actor.type ?? actor.system?.type ?? "").trim().toLowerCase();
   if (["character", "pc", "player", "hero"].includes(rawType)) return "pc";

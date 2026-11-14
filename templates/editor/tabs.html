@@ -1,0 +1,8 @@
+<nav class="sheet-tabs tabs top-tabs srt-trigger-dialog__tabs" data-group="sheet" role="tablist" aria-label="{{tabLabel}}">
+  {{#each tabs}}
+    <a class="srt-trigger-dialog__tab {{this.cssClass}}" data-action="tab" data-group="{{this.group}}" data-tab="{{this.id}}" data-srt-dialog-tab="{{this.id}}" role="tab" aria-selected="{{#if this.active}}true{{else}}false{{/if}}">
+      <i class="{{this.icon}} srt-trigger-dialog__tab-icon" aria-hidden="true" inert></i>
+      <span class="srt-trigger-dialog__tab-label" data-srt-tab-label="{{this.id}}">{{this.label}}</span>
+    </a>
+  {{/each}}
+</nav>

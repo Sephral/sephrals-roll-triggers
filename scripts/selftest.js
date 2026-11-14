@@ -1,7 +1,11 @@
 import { createRollEvent } from "./roll-event.js";
 import { format, getProfileStore, getSetting, getTriggerStore, localize, MODULE_ID, SETTINGS } from "./settings.js";
-import { normalizeTrigger } from "./trigger-manager.js";
+import { normalizeTrigger } from "./trigger-data.js";
 import { collectMatches } from "./triggers.js";
+import { GALLERY_RULES, getRuleTitle } from "./rule-gallery.js";
+import { deriveTurnChangeEvents } from "./combat-events.js";
+import { EDITOR_PARTIALS } from "./trigger-editor.js";
+import { GALLERY_TEMPLATE } from "./gallery-window.js";
 
 // Self-test: the stored triggers and profiles, a test roll through every trigger, the manager window and the texts.
 // Meant to be run after every update of Foundry or the system; the GM also gets a notice once when a newer version
@@ -34,13 +38,22 @@ async function checkIntegrations() {
   }
   check(matched, "TestRoll");
 
+  // Every template of the windows must be there.
+  const templates = [`modules/${MODULE_ID}/templates/trigger-manager.html`, GALLERY_TEMPLATE, ...EDITOR_PARTIALS,
+    ...["tabs", "general", "match", "filters", "actions", "footer"].map((name) => `modules/${MODULE_ID}/templates/editor/${name}.html`)];
   let template = false;
   try {
-    template = (await fetch(`modules/${MODULE_ID}/templates/trigger-manager.html`, { method: "HEAD" })).ok;
+    const answers = await Promise.all(templates.map((path) => fetch(path, { method: "HEAD" })));
+    template = answers.every((answer) => answer.ok);
   } catch (error) {
-    console.warn(`${MODULE_ID} | Self-test could not load the manager template`, error);
+    console.warn(`${MODULE_ID} | Self-test could not load the window templates`, error);
   }
   check(template, "Template");
+
+  // The gallery has a title for every rule, and a turn change makes the events combat triggers wait for.
+  check(GALLERY_RULES.every((rule) => game.i18n.has(`SRT.Gallery.Rule.${rule.id}.Title`) && getRuleTitle(rule)), "Gallery");
+  const events = deriveTurnChangeEvents({ round: 1, turn: 0, combatantId: "a" }, { round: 1, turn: 1, combatantId: "b" });
+  check(events.map((event) => event.type).join() === "turn-end,turn-start", "CombatEvents");
   if (!getSetting(SETTINGS.ENABLED)) problems.push(localize("SelfTest.Disabled"));
   return { problems, checks, triggers: Array.isArray(triggers) ? triggers.length : 0 };
 }

@@ -8,7 +8,6 @@ function createTrigger(overrides) {
     enabled: overrides.enabled ?? true,
     priority: overrides.priority ?? 100,
     oncePerMessage: overrides.oncePerMessage ?? true,
-    allowMultipleMatches: overrides.allowMultipleMatches ?? false,
     stopLowerPriority: overrides.stopLowerPriority ?? false,
     executionMode: overrides.executionMode ?? "confirm-gm",
     visibilityMode: overrides.visibilityMode ?? "inherit",

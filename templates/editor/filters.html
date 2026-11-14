@@ -1,0 +1,24 @@
+<section class="tab srt-trigger-dialog__panel srt-trigger-dialog__panel--filters {{tabs.filters.cssClass}}" data-tab="filters" data-group="sheet" data-srt-dialog-panel="filters">
+  {{> "modules/sephrals-roll-triggers/templates/editor/multi-select.html" name="triggerRollTypes" size=5 kindSection="roll" label=(srtT "Dialog.TriggerRollTypes") hint=(srtT "DialogHint.TriggerRollTypes") data=filters.rollTypes}}
+  {{> "modules/sephrals-roll-triggers/templates/editor/multi-select.html" name="triggerActorTypes" size=4 combatField="actors" label=(srtT "Dialog.TriggerActorTypes") hint=(srtT "DialogHint.TriggerActorTypes") data=filters.actorTypes}}
+  {{> "modules/sephrals-roll-triggers/templates/editor/multi-select.html" name="triggerVisibilityFilter" size=5 kindSection="roll" label=(srtT "Dialog.TriggerVisibilityFilter") hint=(srtT "DialogHint.TriggerVisibilityFilter") data=filters.visibility}}
+  <div class="form-group srt-dialog-field--stacked" data-srt-kind-section="roll">
+    <label title="{{srtT 'DialogHint.TriggerCombatState'}}" aria-label="{{srtT 'DialogHint.TriggerCombatState'}}">{{srtT "Dialog.TriggerCombatState"}}</label>
+    <select name="triggerCombatState">{{selectOptions filters.combatState.choices selected=filters.combatState.selected}}</select>
+  </div>
+  {{> "modules/sephrals-roll-triggers/templates/editor/multi-select.html" name="triggerIncludeScenes" size=4 detail="scene" emptyLabel="-" label=(srtT "Dialog.TriggerIncludeScenes") hint=(srtT "DialogHint.TriggerIncludeScenes") data=filters.scenes}}
+  {{> "modules/sephrals-roll-triggers/templates/editor/multi-select.html" name="triggerIncludeActors" size=4 detail="actor" combatField="actors" emptyLabel="-" label=(srtT "Dialog.TriggerIncludeActors") hint=(srtT "DialogHint.TriggerIncludeActors") data=filters.actors}}
+  {{> "modules/sephrals-roll-triggers/templates/editor/multi-select.html" name="triggerIncludeItems" size=4 detail="item" kindSection="roll" emptyLabel="-" label=(srtT "Dialog.TriggerIncludeItems") hint=(srtT "DialogHint.TriggerIncludeItems") data=filters.items}}
+  <div class="form-group" data-srt-kind-section="roll">
+    <label title="{{srtT 'DialogHint.TriggerPlayerOnly'}}" aria-label="{{srtT 'DialogHint.TriggerPlayerOnly'}}">{{srtT "Dialog.TriggerPlayerOnly"}}</label>
+    <div class="form-fields">
+      <input type="checkbox" name="triggerPlayerOnly" {{#if filters.playerOnly}}checked{{/if}}>
+    </div>
+  </div>
+  <div class="form-group" data-srt-kind-section="roll">
+    <label title="{{srtT 'DialogHint.TriggerGmOnly'}}" aria-label="{{srtT 'DialogHint.TriggerGmOnly'}}">{{srtT "Dialog.TriggerGmOnly"}}</label>
+    <div class="form-fields">
+      <input type="checkbox" name="triggerGmOnly" {{#if filters.gmOnly}}checked{{/if}}>
+    </div>
+  </div>
+</section>

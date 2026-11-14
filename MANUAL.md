@@ -2,7 +2,7 @@
 
 This manual covers the details. For a quick overview see the [README](README.md).
 
-Roll Triggers watches the rolls in the chat and runs your house rule actions when a roll matches. It never changes a roll, never rerolls dice and does not replace your game system's own resolution. It only reacts after the roll is there.
+Roll Triggers watches the rolls in the chat and runs your house rule actions when a roll matches. It never changes a roll, never rerolls dice and does not replace your game system's own resolution. It only reacts after the roll is there. Combat triggers do the same for what happens in a combat, such as the start of a turn or an effect that ends.
 
 ## Requirements
 
@@ -16,14 +16,39 @@ Roll Triggers watches the rolls in the chat and runs your house rule actions whe
 
 The manager has two areas:
 
-* **Configured triggers:** the triggers active in this world
+* **Configured triggers:** the triggers active in this world, each marked as a roll trigger or a combat trigger. *Ready rules* opens the gallery of ready house rules, *Create trigger* opens the editor, *Test* the test bench
 * **Profiles:** ready made bundles of triggers you can import into the world
+
+The manager, the trigger editor and the gallery are windows of their own. They follow the theme and language settings, and Foundry offers its usual window controls (in Foundry 14 also detaching them).
+
+## Ready rules
+
+*Ready rules* in the manager (or `game.modules.get("sephrals-roll-triggers").api.openGallery()`) opens a gallery of ready house rules. Nobody has to write a trigger from scratch: pick a rule, read what it does in plain words ("When ... Then ...") and add it with one click.
+
+* **Only what fits:** the gallery lists the rules for the game system of the world. Rules that fit every system (natural 20 and natural 1 on a d20, d100 rules, any roll, combat events) are always there. *Show rules for other game systems* lists the rest
+* **Search:** the search box looks into the title and the plain words
+* **Add:** adds the rule as a normal trigger of the world, switched on. *Add and edit* adds it and opens the editor right away. Everything can be changed afterwards, and the rule keeps its mark, so the card shows *In your world*. A rule can be added again, each copy is a trigger of its own
+* **Choices on the card:** a rule that rolls a table needs its roll table, chosen on the card (the rule is not added until you pick one). Some rules have a number, for example the total below which the GM gets a note. The plain words follow the number
+* **Execution:** rules that only post a message or a note run automatically. Rules that change something on an actor (grant Inspiration, a hero point, a benny or Heroism, knock a creature prone) ask the GM first. The card says which
+
+The rules, by group:
+
+* **Natural 20 and natural 1:** cheer, roll a table or a bonus die on a natural 20, groan, roll a table or note for the GM on a natural 1
+* **Percentile systems:** 01 is a critical, 100 is a fumble, doubles mark an improvement, a very low roll is announced
+* **Any roll, any system:** a low total whispers the GM, a huge total gets a callout, doubles get a cheer
+* **D&D 5e:** critical hit cheer, table and Inspiration, fumble table, prone and GM note, failed death save warns the GM, natural 20 on a death save, maximum damage callout, natural 20 on initiative
+* **Pathfinder 2e:** critical success cheer, critical failure note and table, a natural 20 grants a hero point
+* **Savage Worlds:** snake eyes note, ace callout, an ace earns a benny
+* **Crucible:** triple on a check, three ones note, a triple grants Heroism
+* **Combat events:** announce every turn and round, a note at the start of an NPC turn, a reminder every few rounds, a table roll in one round, call for initiative, a reminder when the fight ends, announce ending effects
+
+The texts of the rules are in English and German. The messages a rule posts use the language you have chosen for the module when you add the rule.
 
 ## Settings
 
 * **Enable roll triggers:** turns the triggers on or off for the world
 * **Module language:** follow Foundry (including community translations), German or English
-* **Manager theme:** Signature or Foundry look
+* **Manager theme:** Signature or Foundry look, for the manager, the editor and the gallery
 * **Default execution mode:** the execution mode for new triggers
 * **Allow player buttons:** players can use trigger chat buttons on their own rolls and on rolls of actors they own (never on blind rolls)
 * **Enable import and export:** shows the import and export buttons
@@ -59,6 +84,7 @@ With the GM’s consent only the active GM’s browser counts, and it sends at m
 
 * on how many of the last 30 days the module was used
 * how often triggers fire, chat buttons of a trigger are used, triggers are created, copied or edited, profiles are imported, files are imported or exported and the test bench is opened
+* how often the gallery of ready rules is opened and a rule is added from it, how many combat triggers are created and how often a combat event sets one off
 * the settings *Manager theme*, *Default execution mode* and *Allow player buttons* (only the chosen option)
 * where errors occur in the module code: file, line, error type and whether the error arose in the module itself, in Foundry, in the game system or in another module, never the error message or the name of another module
 
@@ -69,15 +95,37 @@ No names, chat messages, notes, dice results or other content of the world are s
 A trigger has four parts:
 
 * **General:** name, description, priority and execution mode
-* **Match:** the dice or roll condition that must be true, plus optional AND conditions
+* **Match:** the dice or roll condition that must be true, plus optional AND conditions (for a combat trigger the **Event** tab)
 * **Filters:** optional limits on when the trigger may fire
 * **Actions:** what happens when the trigger matches
 
 Triggers with a higher priority are checked first. If several triggers match the same roll, they all run, unless a trigger is set to stop the ones after it.
 
-A trigger fires at most once per chat message, even when the message holds several rolls, for example a damage card with several damage parts. The first matching roll counts.
+A trigger fires at most once per chat message, even when the message holds several rolls, for example a damage card with several damage parts. The first matching roll counts. The switch *Once per chat message* on the general tab of the editor turns this off, then the trigger fires for every matching roll of a message. Older versions kept this switch in two hidden fields (`oncePerMessage` and `allowMultipleMatches`). Both still work for triggers saved by an older version, and the editor saves the one field `oncePerMessage`.
 
 Some modules post a card first and add its rolls a moment later, for example Ready Set Roll and MidiQOL. Roll Triggers checks such rolls when they arrive, each roll once.
+
+## Combat triggers
+
+A trigger reacts to a roll or to a combat event. The general tab of the editor has the choice *Reacts to*. A combat trigger takes its place in the same list, with a *Combat* mark, and uses the same actions, priority and *stop lower priority* rule as a roll trigger. The *Match* tab becomes the *Event* tab:
+
+* **Start of a turn** and **end of a turn:** of the combatant whose turn it is
+* **Start of a round:** at the beginning of every new round
+* **Combat starts:** when the combat begins (together with the start of round 1 and of the first turn)
+* **Combat ends:** when the combat is deleted, only for a combat that had started
+* **An effect ends:** an effect of a combatant's actor runs out or is removed while its combat runs. The name of the effect (or one of its statuses) can be limited with a text it must contain
+
+For the events with rounds, *Only in round* limits the trigger to one round, *Every N rounds* to the rounds 3, 6, 9 (with N = 3), and both together count from the round given: round 2 and every 3 gives 2, 5, 8.
+
+The filters of a combat trigger are the actor type (PC, NPC), actors and scenes. They exist for the events that belong to a combatant. Roll filters, AND conditions and the chat button mode do not apply. A combat trigger can run automatically, ask the GM first (the question names the event), tell the GMs privately that it matched or be switched off.
+
+Only the designated active GM runs combat triggers, and every event counts once, even with several GMs and players online. The events come in the order Foundry runs them: end of the turn, start of the new rounds, start of the new turn. Going back in the tracker brings no events. When the tracker jumps over several turns, only the turn that ends and the turn that starts count, but every new round does. An effect counts when its duration runs out at a turn change or when it is deleted from the actor, whichever comes first, never twice.
+
+Templates of combat triggers can use `{{actor.name}}` (empty for events without a combatant), `{{combat.round}}`, `{{combat.turn}}`, `{{combat.name}}`, `{{combat.event}}`, `{{combatant.name}}` and `{{effect.name}}`. Roll placeholders are empty. An action for the player who rolled reaches the first player who owns the actor and is online, nobody otherwise. A roll table action offers the draw to the hook `sephrals-roll-triggers.rollTable` like every roll table action.
+
+A combat trigger is stored with `kind: "combat"` and the settings under `combat`. Its match is the marker `combat-event`, so a version of Roll Triggers without combat triggers imports it as a trigger that never matches.
+
+The test bench and the debug file leave combat triggers out of their roll checks. The debug file lists them as the active combat triggers, and its trace records every combat event the service saw and the triggers that matched.
 
 ## Match types
 
@@ -190,7 +238,7 @@ Macro users can open the bench with `game.modules.get("sephrals-roll-triggers").
 
 Profiles are bundles of triggers. Import one into the world, or export your own to use it elsewhere.
 
-Starter profiles are included for:
+The gallery of ready rules is the quicker start. Starter profiles are included for:
 
 * D&D 5e
 * Pathfinder 2e

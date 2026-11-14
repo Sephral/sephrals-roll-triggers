@@ -1,0 +1,43 @@
+<section class="tab srt-trigger-dialog__panel srt-trigger-dialog__panel--match {{tabs.match.cssClass}}" data-tab="match" data-group="sheet" data-srt-dialog-panel="match">
+  <div data-srt-kind-section="roll">
+    <div class="form-group">
+      <label title="{{srtT 'DialogHint.TriggerMatchType'}}" aria-label="{{srtT 'DialogHint.TriggerMatchType'}}">{{srtT "Dialog.TriggerMatchType"}}</label>
+      <select name="triggerMatchType">{{selectOptions match.typeChoices selected=match.type}}</select>
+    </div>
+    {{#each match.fields}}
+      {{> "modules/sephrals-roll-triggers/templates/editor/match-field.html"}}
+    {{/each}}
+    <div class="srt-extra-matches" data-srt-extra-matches>
+      <div class="srt-extra-matches__list" data-srt-extra-match-list>
+        {{#each match.extraMatches}}
+          {{> "modules/sephrals-roll-triggers/templates/editor/extra-match.html"}}
+        {{/each}}
+      </div>
+      <div class="srt-extra-matches__toolbar">
+        <button type="button" class="srt-inline-action" data-action="addExtraMatch" title="{{srtT 'DialogHint.TriggerExtraMatchAdd'}}">
+          <i class="fa-solid fa-plus" aria-hidden="true"></i>
+          <span class="srt-inline-action__label">{{srtT "Dialog.TriggerExtraMatchAdd"}}</span>
+        </button>
+      </div>
+    </div>
+  </div>
+  <div data-srt-kind-section="combat">
+    <p class="srt-editor-note">{{srtT "Dialog.CombatNote"}}</p>
+    <div class="form-group">
+      <label title="{{srtT 'DialogHint.TriggerCombatEvent'}}" aria-label="{{srtT 'DialogHint.TriggerCombatEvent'}}">{{srtT "Dialog.TriggerCombatEvent"}}</label>
+      <select name="triggerCombatEvent">{{selectOptions combat.eventChoices selected=combat.event}}</select>
+    </div>
+    <div class="form-group" data-srt-combat-field="rounds">
+      <label title="{{srtT 'DialogHint.TriggerCombatRound'}}" aria-label="{{srtT 'DialogHint.TriggerCombatRound'}}">{{srtT "Dialog.TriggerCombatRound"}}</label>
+      <input type="number" name="triggerCombatRound" value="{{combat.round}}" min="1" step="1">
+    </div>
+    <div class="form-group" data-srt-combat-field="rounds">
+      <label title="{{srtT 'DialogHint.TriggerCombatEvery'}}" aria-label="{{srtT 'DialogHint.TriggerCombatEvery'}}">{{srtT "Dialog.TriggerCombatEvery"}}</label>
+      <input type="number" name="triggerCombatEvery" value="{{combat.every}}" min="1" step="1">
+    </div>
+    <div class="form-group" data-srt-combat-field="effect">
+      <label title="{{srtT 'DialogHint.TriggerCombatEffect'}}" aria-label="{{srtT 'DialogHint.TriggerCombatEffect'}}">{{srtT "Dialog.TriggerCombatEffect"}}</label>
+      <input type="text" name="triggerCombatEffect" value="{{combat.effect}}">
+    </div>
+  </div>
+</section>

@@ -1,0 +1,32 @@
+<section class="tab srt-trigger-dialog__panel srt-trigger-dialog__panel--general {{tabs.general.cssClass}}" data-tab="general" data-group="sheet" data-srt-dialog-panel="general">
+  <div class="form-group">
+    <label title="{{srtT 'DialogHint.TriggerName'}}" aria-label="{{srtT 'DialogHint.TriggerName'}}">{{srtT "Dialog.TriggerName"}}</label>
+    <input type="text" name="triggerName" value="{{general.name}}" autofocus>
+  </div>
+  <div class="form-group">
+    <label title="{{srtT 'DialogHint.TriggerKind'}}" aria-label="{{srtT 'DialogHint.TriggerKind'}}">{{srtT "Dialog.TriggerKind"}}</label>
+    <select name="triggerKind">{{selectOptions general.kindChoices selected=general.kind}}</select>
+  </div>
+  <div class="form-group">
+    <label title="{{srtT 'DialogHint.TriggerDescription'}}" aria-label="{{srtT 'DialogHint.TriggerDescription'}}">{{srtT "Dialog.TriggerDescription"}}</label>
+    <input type="text" name="triggerDescription" value="{{general.description}}">
+  </div>
+  <div class="form-group">
+    <label title="{{srtT 'DialogHint.TriggerCategory'}}" aria-label="{{srtT 'DialogHint.TriggerCategory'}}">{{srtT "Dialog.TriggerCategory"}}</label>
+    <input type="text" name="triggerCategory" value="{{general.category}}">
+  </div>
+  <div class="form-group">
+    <label title="{{srtT 'DialogHint.TriggerPriority'}}" aria-label="{{srtT 'DialogHint.TriggerPriority'}}">{{srtT "Dialog.TriggerPriority"}}</label>
+    <input type="number" name="triggerPriority" value="{{general.priority}}">
+  </div>
+  <div class="form-group">
+    <label title="{{srtT 'DialogHint.TriggerExecutionMode'}}" aria-label="{{srtT 'DialogHint.TriggerExecutionMode'}}">{{srtT "Dialog.TriggerExecutionMode"}}</label>
+    <select name="triggerExecutionMode">{{selectOptions general.executionChoices selected=general.executionMode}}</select>
+  </div>
+  <div class="form-group" data-srt-kind-section="roll">
+    <label title="{{srtT 'DialogHint.TriggerOncePerMessage'}}" aria-label="{{srtT 'DialogHint.TriggerOncePerMessage'}}">{{srtT "Dialog.TriggerOncePerMessage"}}</label>
+    <div class="form-fields">
+      <input type="checkbox" name="triggerOncePerMessage" {{#if general.oncePerMessage}}checked{{/if}}>
+    </div>
+  </div>
+</section>

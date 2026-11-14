@@ -62,8 +62,10 @@ export function describeMessage(service, message) {
   return description;
 }
 
+// The roll triggers and the combat triggers (which have their own service) that are on.
 function activeTriggers(service) {
-  return { activeTriggers: service?.getActiveTriggers() ?? [] };
+  const combat = (service?.settings?.getTriggers?.() ?? []).filter((trigger) => trigger?.kind === "combat" && trigger.enabled !== false);
+  return { activeTriggers: service?.getActiveTriggers() ?? [], activeCombatTriggers: combat };
 }
 
 // The latest roll messages, also those that set off nothing.
