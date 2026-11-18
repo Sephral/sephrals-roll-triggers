@@ -145,7 +145,7 @@ function refreshLocalizedUi() {
     const app = globalThis.foundry?.applications?.instances?.get?.(id);
     if (app?.rendered) void app.render();
   }
-  ui?.controls?.render?.({ reset: true });
+  ui?.controls?.render?.({ reset: true })?.catch?.(() => {});
 }
 
 export function getThemePreference() {
