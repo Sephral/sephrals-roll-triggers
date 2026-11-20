@@ -1178,6 +1178,10 @@
 
 .application.srt-editor-window .srt-trigger-dialog__tabs {
   flex: 0 0 auto;
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
+  margin-inline: 0;
 }
 
 .srt-editor-footer {
