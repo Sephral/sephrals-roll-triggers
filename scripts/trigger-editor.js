@@ -183,7 +183,7 @@ export function refreshEditorState(root) {
 let editorClass = null;
 
 // The class is built on first use: foundry.applications.api only exists in the browser, the unit tests load this file in Node.
-function getEditorClass() {
+export function getEditorClass() {
   if (editorClass) return editorClass;
   const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 

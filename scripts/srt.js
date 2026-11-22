@@ -6,6 +6,7 @@ import { RollTriggerService } from "./roll-trigger-service.js";
 import { getInternalProfiles } from "./default-presets.js";
 import { CombatTriggerService } from "./combat-service.js";
 import { openRuleGallery } from "./gallery-window.js";
+import { sampleWindows } from "./sample-windows.js";
 import { registerTemplateHelpers } from "./templates.js";
 import { getSelfTestMenuClass, getSettingsMenuClass, openTriggerManager, openTriggerTestBench, refreshTriggerManager, toggleTriggerManager } from "./trigger-manager.js";
 import { TESTED_VERSIONS, noticeNewVersions, runSelfTest } from "./selftest.js";
@@ -93,6 +94,8 @@ Hooks.once("ready", async () => {
       openTestBench: openTriggerTestBench,
       openGallery: openRuleGallery,
       runSelfTest,
+      // The windows and chat cards filled with made-up rules, nothing saved (translators, testing; see samples.mjs)
+      samples: () => sampleWindows(),
       // One file for all of Sephral's modules, without a message id about their latest picture
       saveDebugFile: (messageId) => saveDebugFile(messageId ?? null, { moduleId: MODULE_ID })
     };

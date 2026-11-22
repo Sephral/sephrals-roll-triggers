@@ -234,6 +234,8 @@ The bench uses the same roll reading and the same matching as real rolls, so its
 
 Macro users can open the bench with `game.modules.get("sephrals-roll-triggers").api.openTestBench()`.
 
+`game.modules.get("sephrals-roll-triggers").api.samples()` lists sample windows and chat cards over made-up rules (rules window, ready rules, editor tabs, test bench, questions, reaction cards). They save nothing and run no rule, translators and testers use them to see every text in its place.
+
 ## Profiles
 
 Profiles are bundles of triggers. Import one into the world, or export your own to use it elsewhere.

@@ -67,6 +67,14 @@ function versionLine() {
     .join(", ");
 }
 
+// The whispered card of the self-test.
+export function buildReportContent(summary, problems = []) {
+  const escape = foundry.utils.escapeHTML;
+  let content = `<h3>${escape(localize("SelfTest.Title"))}</h3><p>${escape(summary)}</p><p><small>${escape(versionLine())}</small></p>`;
+  if (problems.length) content += `<ul>${problems.map((problem) => `<li>${escape(problem)}</li>`).join("")}</ul>`;
+  return content;
+}
+
 // Runs the self-test and reports the result as a notification and a whispered chat message.
 export async function runSelfTest({ report = true } = {}) {
   const { problems, checks, triggers } = await checkIntegrations();
@@ -78,9 +86,7 @@ export async function runSelfTest({ report = true } = {}) {
   else ui.notifications.info(summary);
 
   if (report) {
-    const escape = foundry.utils.escapeHTML;
-    let content = `<h3>${escape(localize("SelfTest.Title"))}</h3><p>${escape(summary)}</p><p><small>${escape(versionLine())}</small></p>`;
-    if (problems.length) content += `<ul>${problems.map((problem) => `<li>${escape(problem)}</li>`).join("")}</ul>`;
+    const content = buildReportContent(summary, problems);
     await ChatMessage.implementation.create({ content, whisper: [game.user.id], speaker: { alias: game.modules.get(MODULE_ID)?.title } });
   }
   return { problems, checks };

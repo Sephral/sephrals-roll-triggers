@@ -662,11 +662,10 @@ function describeLogLine(event) {
   return `${escapeHtml(event?.formula)} = ${escapeHtml(event?.total ?? "-")}`;
 }
 
-export async function confirmExecution(match) {
-  if (!game.user?.isGM) return false;
-
+// The question of the confirmation: trigger, actor, what happened and what would run.
+export function buildConfirmContent(match) {
   const actionList = summarizeActions(match.actions).map((entry) => `<li>${escapeHtml(entry)}</li>`).join("");
-  const content = `
+  return `
     <div>
       <p><strong>${localize("Dialog.Trigger")}</strong>: ${escapeHtml(match.trigger.name)}</p>
       <p><strong>${localize("Dialog.Actor")}</strong>: ${escapeHtml(match.event.actorName ?? "-")}</p>
@@ -675,8 +674,16 @@ export async function confirmExecution(match) {
       <ul>${actionList}</ul>
     </div>
   `;
+}
 
-  return confirmDialog(localize("Dialog.ConfirmTitle"), content);
+export async function confirmExecution(match) {
+  if (!game.user?.isGM) return false;
+  return confirmDialog(localize("Dialog.ConfirmTitle"), buildConfirmContent(match));
+}
+
+// The line of the GM whisper log as a card content (sample cards show the same markup).
+export function buildLogContent(match) {
+  return `<div><strong>${escapeHtml(match.trigger.name)}</strong>: ${describeLogLine(match.event)}</div>`;
 }
 
 // visibilityMode "inherit" (the trigger default) keeps follow-up output of private, self and blind rolls private
@@ -722,7 +729,7 @@ export async function executeMatch(match, options = {}) {
   if (mode === "gm-whisper-log") {
     await ChatMessage.create({
       whisper: ChatMessage.getWhisperRecipients("GM").map((user) => user.id),
-      content: `<div><strong>${escapeHtml(match.trigger.name)}</strong>: ${describeLogLine(match.event)}</div>`
+      content: buildLogContent(match)
     });
     return { skipped: false, mode };
   }

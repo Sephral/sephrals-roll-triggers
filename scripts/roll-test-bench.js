@@ -415,7 +415,7 @@ let benchClass = null;
 let benchApp = null;
 
 // The class is built on first use: foundry.applications.api only exists in the browser, the unit tests load this file in Node.
-function getTestBenchClass() {
+export function getTestBenchClass() {
   if (benchClass) return benchClass;
   const { ApplicationV2, DialogV2 } = foundry.applications.api;
 
